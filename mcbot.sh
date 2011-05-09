@@ -142,7 +142,9 @@ main () {
         dimport "$1"
         if [[ -z "$2" ]]; then
             tell "$1 You must specify an item. Use /get list to list"
-            tell "$1 how many of each item you have left today."
+            tell "$1 You have:"
+            tell "$1 $(($NRLIMIT - $NRUSED)) netherrack, $(($SSLIMIT - $SSUSED)) soulsand, and $(($GSLIMIT - $GSUSED)) glowstone"
+            tell "$1 left today."
 
         elif [[ "$2" = "netherrack" ]] && \
            [[ "$AMOUNT" -le "$NRLIMIT" ]] && \
@@ -161,11 +163,6 @@ main () {
              [[ "$(($GSUSED + $AMOUNT))" -le "$GSLIMIT" ]]; then
             scmd "give $1 89 $AMOUNT"
             GSUSED="$(($GSUSED + $AMOUNT))"
-
-        elif [[ "$2" = "list" ]]; then
-            tell "$1 You have:"
-            tell "$1 $(($NRLIMIT - $NRUSED)) netherrack, $(($SSLIMIT - $SSUSED)) soulsand, and $(($GSLIMIT - $GSUSED)) glowstone"
-            tell "$1 left today."
 
         else
             tell "$1 Sorry, you can\047t have that\041"
