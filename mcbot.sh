@@ -108,6 +108,11 @@ main () {
 
     get () {
     # Gives user either netherrack or glowtone; takes username, item, [amount]
+        wfile () {
+        # writes data to file; accepts five mandatory arguments:
+        # file to write, date, NRUSED, GSUSED, and SSUSED
+            echo -e "UDATE=$2\nNRUSED=$3\nGSUSED=$4\nSSUSED=$5" > "$1"
+        }
         dimport () {
         # Imports user data, creates file if it doesn't exist; takes username
             UDATA="$UDIR/$1/used_items"
@@ -116,13 +121,13 @@ main () {
             if [[ -e "$UDATA" ]]; then
                 source "$UDATA"
                 if [[ "$UDATE" != "$DATE" ]]; then
-                    echo -e "UDATE=$DATE\nNRUSED=0\nGSUSED=0\nSSUSED=0" > "$UDATA"
+                    wfile "$UDATA" "$DATE" 0 0 0
                     source "$UDATA"
                 fi
 
             else
                 mkdir -p "$UDIR/$1"
-                echo -e "UDATE=$DATE\nNRUSED=0\nGSUSED=0\nSSUSED=0" > "$UDATA"
+                wfile "$UDATA" "$DATE" 0 0 0
                 source "$UDATA"
             fi
 
@@ -166,7 +171,7 @@ main () {
             tell "$1 Sorry, you can\047t have that\041"
         fi
 
-        echo -e "UDATE=$UDATE\nNRUSED=$NRUSED\nGSUSED=$GSUSED\nSSUSED=$SSUSED" > "$UDATA"
+        wfile "$UDATA" "$UDATE" "$NRUSED" "$GSUSED" "$SSUSED"
 
     }
 
