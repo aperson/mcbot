@@ -1,0 +1,68 @@
+mcbot.sh
+
+by Zach McCullough
+
+aka aperson aka nosrepa
+
+This script is intended to interface with a minecraft server running in an
+existing screen session like the one provided by the server startup script
+that is on the minecraft wiki.
+
+http://www.minecraftwiki.net/wiki/Server_startup_script
+
+INSTALLING
+
+Copy the mcbot.sh , motd, and help files to the folder your server resides
+on.
+
+Edit the motd file to suit your server's needs.
+
+Edit the $SPATH varialbe in the mcbot.sh to reflect the directory that the
+server/mcbot are installed to.
+
+This script requires lynx to be installed if you want /weather to work.
+
+RUNNING
+
+mcbot can be run manually from a terminal, but if you go this route, remember
+that mcbot will stop itself when the minecraft server stops and that you'll
+have to restart it every time the server stops. It's recommended that you set
+mcbot to run with the server.  If you use the server startup script mentioned
+above, this is easy.  Just add something like (the & is crucial!):
+
+as_user "$MCPATH/mcbot.sh" &
+
+I recommend adding this after the:
+
+as_user "cd $MCPATH && screen -dmS minecraft $INVOCATION"
+
+in the mc_start function.
+
+USAGE
+
+The commands are (as from the help file)
+
+/help            - shows this message
+/list              - shows online players
+/tp user        - teleports to user
+/get item [x]    - gives you item of x amount
+/motd            - shows the motd
+/weather zip   - gets the weather for zip
+
+
+If you're wondering what /weather is doing in there, well, BECAUSE, that's why.
+Anyways, /get is only set up to give netherrack, glowstone, and soulsand .  It's
+my server's belief that the only items that should be spawned are nether items,
+so that's all my script provides.  If you're ambitious enough, this is easy enough
+to edit to add in more items.  And yes, I know soul sand is two words, but it's
+easier to parse it as one word :) .
+
+
+I don't know how this file went from trying to be impersonal to what it ended up
+being, but who knows?
+
+This script is intended to be basic.  Suggestions/comments are welcome.
+
+PLANNED FEATURES
+
+Memo system - leave messages for users!
