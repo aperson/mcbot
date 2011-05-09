@@ -141,7 +141,7 @@ main () {
 
         dimport "$1"
         if [[ -z "$2" ]]; then
-            tell "$1 You must specify an item. Use /get list to list"
+            tell "$1 You must specify an item."
             tell "$1 You have:"
             tell "$1 $(($NRLIMIT - $NRUSED)) netherrack, $(($SSLIMIT - $SSUSED)) soulsand, and $(($GSLIMIT - $GSUSED)) glowstone"
             tell "$1 left today."
