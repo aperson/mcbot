@@ -175,7 +175,7 @@ main () {
     die () {
     # Breaks out of the loop and does a little housekeeping
         break
-        rm -f $OLIST
+        rm -f "$OLIST"
     }
 
     weather() {
