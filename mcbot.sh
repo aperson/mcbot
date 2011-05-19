@@ -11,24 +11,24 @@
 
 # lets start out by defining some constants
 # Path to the server folder:
-SPATH="/dev/shm/minecraft_server"
+spath="/dev/shm/minecraft_server"
 # Location of the help file:
-HFILE="$SPATH/help"
+hfile="$spath/help"
 # Where to store the list of online players:
-OLIST="$SPATH/online_list"
+olist="$spath/online_list"
 # Location of the message of the day:
-MOTD="$SPATH/motd"
+motd="$spath/motd"
 # Location to keep track of user information:
-UDIR="$SPATH/user_data"
+udir="$spath/user_data"
 # Limits to number of times items can be /get'd:
 # netherrack:
-NRLIMIT=5
+nrlimit=5
 # glowstone:
-SSLIMIT=5
+sslimit=5
 # soulsand:
-GSLIMIT=10
+gslimit=10
 
-touch "$OLIST"
+touch "$olist"
 
 main () {
 # Script main function; takes a $line and decides what to do with it
@@ -55,13 +55,13 @@ main () {
 
     ucount () {
     # Counts the online users; this takes no argument
-        wc -l $OLIST | cut -d" " -f1
+        wc -l $olist | cut -d" " -f1
     }
 
     motd () {
     # Message of the day; takes a username as an argument
         count="$(ucount)"
-        rfile "$1" "$MOTD"
+        rfile "$1" "$motd"
         if [[ "$count" -eq 1 ]]; then
             tell "$1 You\047re the only one here, $1"
         else
@@ -71,20 +71,20 @@ main () {
 
     hlp () {
     # Tells user the command help; takes a username as an argument
-        rfile "$1" "$HFILE"
+        rfile "$1" "$hfile"
     }
 
     login () {
     # records username to the online_list and sends the player the motd
     # takes the username as an argument
-        echo "$1" >> "$OLIST"
+        echo "$1" >> "$olist"
         motd "$1"
     
     }
 
     logout () {
     # removes user from the online_list; takes a username as an argument
-        sed -i -e '/'"$1"'/d' "$OLIST"
+        sed -i -e '/'"$1"'/d' "$olist"
     }
 
     lusers () {
@@ -93,7 +93,7 @@ main () {
             tell "$1 You\047re the only one here, $1"
         else
             tell "$1 Players online: $(ucount)"
-            tell "$1 $(xargs -a $OLIST printf '%s, ' | sed '$s/..$//')"
+            tell "$1 $(xargs -a $olist printf '%s, ' | sed '$s/..$//')"
         fi
     }
 
@@ -115,7 +115,7 @@ main () {
         }
         dimport () {
         # Imports user data, creates file if it doesn't exist; takes username
-            UDATA="$UDIR/$1/used_items"
+            UDATA="$udir/$1/used_items"
             DATE="$(date +%Y%m%d)"
 
             if [[ -e "$UDATA" ]]; then
@@ -126,7 +126,7 @@ main () {
                 fi
 
             else
-                mkdir -p "$UDIR/$1"
+                mkdir -p "$udir/$1"
                 wfile "$UDATA" "$DATE" 0 0 0
                 source "$UDATA"
             fi
@@ -143,24 +143,24 @@ main () {
         if [[ -z "$2" ]]; then
             tell "$1 You must specify an item."
             tell "$1 You have:"
-            tell "$1 $(($NRLIMIT - $NRUSED)) netherrack, $(($SSLIMIT - $SSUSED)) soulsand, and $(($GSLIMIT - $GSUSED)) glowstone"
+            tell "$1 $(($nrlimit - $NRUSED)) netherrack, $(($sslimit - $SSUSED)) soulsand, and $(($gslimit - $GSUSED)) glowstone"
             tell "$1 left today."
 
         elif [[ "$2" = "netherrack" ]] && \
-           [[ "$AMOUNT" -le "$NRLIMIT" ]] && \
-           [[ "$(($NRUSED + $AMOUNT))" -le "$NRLIMIT" ]]; then
+           [[ "$AMOUNT" -le "$nrlimit" ]] && \
+           [[ "$(($NRUSED + $AMOUNT))" -le "$nrlimit" ]]; then
             scmd "give $1 87 $AMOUNT"
             NRUSED="$(($NRUSED + $AMOUNT))"
 
         elif [[ "$2" = "soulsand" ]] && \
-             [[ "$AMOUNT" -le "$SSLIMIT" ]] && \
-             [[ "$(($SSUSED + $AMOUNT))" -le "$SSLIMIT" ]]; then
+             [[ "$AMOUNT" -le "$sslimit" ]] && \
+             [[ "$(($SSUSED + $AMOUNT))" -le "$sslimit" ]]; then
             scmd "give $1 88 $AMOUNT"
             SSUSED="$(($SSUSED + $AMOUNT))"
 
         elif [[ "$2" = "glowstone" ]] && \
-             [[ "$AMOUNT" -le "$GSLIMIT" ]] && \
-             [[ "$(($GSUSED + $AMOUNT))" -le "$GSLIMIT" ]]; then
+             [[ "$AMOUNT" -le "$gslimit" ]] && \
+             [[ "$(($GSUSED + $AMOUNT))" -le "$gslimit" ]]; then
             scmd "give $1 89 $AMOUNT"
             GSUSED="$(($GSUSED + $AMOUNT))"
 
@@ -175,7 +175,7 @@ main () {
     die () {
     # Breaks out of the loop and does a little housekeeping
         break
-        rm -f "$OLIST"
+        rm -f "$olist"
     }
 
     weather() {
@@ -221,7 +221,7 @@ main () {
     fi
 }
 
-tail -Fn0 "$SPATH/server.log" | \
+tail -Fn0 "$spath/server.log" | \
 while read line; do
     main $line
 
