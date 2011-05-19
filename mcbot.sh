@@ -110,65 +110,65 @@ main () {
     # Gives user either netherrack or glowtone; takes username, item, [amount]
         wfile () {
         # writes data to file; accepts five mandatory arguments:
-        # file to write, date, NRUSED, GSUSED, and SSUSED
-            echo -e "UDATE=$2\nNRUSED=$3\nGSUSED=$4\nSSUSED=$5" > "$1"
+        # file to write, date, nrused, gsused, and ssused
+            echo -e "udate=$2\nnrused=$3\ngsused=$4\nssused=$5" > "$1"
         }
         dimport () {
         # Imports user data, creates file if it doesn't exist; takes username
-            UDATA="$udir/$1/used_items"
-            DATE="$(date +%Y%m%d)"
+            udata="$udir/$1/used_items"
+            mydate="$(date +%Y%m%d)"
 
-            if [[ -e "$UDATA" ]]; then
-                source "$UDATA"
-                if [[ "$UDATE" != "$DATE" ]]; then
-                    wfile "$UDATA" "$DATE" 0 0 0
-                    source "$UDATA"
+            if [[ -e "$udata" ]]; then
+                source "$udata"
+                if [[ "$udate" != "$mydate" ]]; then
+                    wfile "$udata" "$mydate" 0 0 0
+                    source "$udata"
                 fi
 
             else
                 mkdir -p "$udir/$1"
-                wfile "$UDATA" "$DATE" 0 0 0
-                source "$UDATA"
+                wfile "$udata" "$mydate" 0 0 0
+                source "$udata"
             fi
 
         }
 
-        AMOUNT="$3"
+        amount="$3"
 
-        if [[ -z "$AMOUNT" ]];then
-            AMOUNT=1
+        if [[ -z "$amount" ]];then
+            amount=1
         fi
 
         dimport "$1"
         if [[ -z "$2" ]]; then
             tell "$1 You must specify an item."
             tell "$1 You have:"
-            tell "$1 $(($nrlimit - $NRUSED)) netherrack, $(($sslimit - $SSUSED)) soulsand, and $(($gslimit - $GSUSED)) glowstone"
+            tell "$1 $(($nrlimit - $nrused)) netherrack, $(($sslimit - $ssused)) soulsand, and $(($gslimit - $gsused)) glowstone"
             tell "$1 left today."
 
         elif [[ "$2" = "netherrack" ]] && \
-           [[ "$AMOUNT" -le "$nrlimit" ]] && \
-           [[ "$(($NRUSED + $AMOUNT))" -le "$nrlimit" ]]; then
-            scmd "give $1 87 $AMOUNT"
-            NRUSED="$(($NRUSED + $AMOUNT))"
+           [[ "$amount" -le "$nrlimit" ]] && \
+           [[ "$(($nrused + $amount))" -le "$nrlimit" ]]; then
+            scmd "give $1 87 $amount"
+            nrused="$(($nrused + $amount))"
 
         elif [[ "$2" = "soulsand" ]] && \
-             [[ "$AMOUNT" -le "$sslimit" ]] && \
-             [[ "$(($SSUSED + $AMOUNT))" -le "$sslimit" ]]; then
-            scmd "give $1 88 $AMOUNT"
-            SSUSED="$(($SSUSED + $AMOUNT))"
+             [[ "$amount" -le "$sslimit" ]] && \
+             [[ "$(($ssused + $amount))" -le "$sslimit" ]]; then
+            scmd "give $1 88 $amount"
+            ssused="$(($ssused + $amount))"
 
         elif [[ "$2" = "glowstone" ]] && \
-             [[ "$AMOUNT" -le "$gslimit" ]] && \
-             [[ "$(($GSUSED + $AMOUNT))" -le "$gslimit" ]]; then
-            scmd "give $1 89 $AMOUNT"
-            GSUSED="$(($GSUSED + $AMOUNT))"
+             [[ "$amount" -le "$gslimit" ]] && \
+             [[ "$(($gsused + $amount))" -le "$gslimit" ]]; then
+            scmd "give $1 89 $amount"
+            gsused="$(($gsused + $amount))"
 
         else
             tell "$1 Sorry, you can\047t have that\041"
         fi
 
-        wfile "$UDATA" "$UDATE" "$NRUSED" "$GSUSED" "$SSUSED"
+        wfile "$udata" "$udate" "$nrused" "$gsused" "$ssused"
 
     }
 
