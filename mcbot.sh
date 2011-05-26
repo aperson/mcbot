@@ -9,24 +9,7 @@
 # with the copy of this script
 ###################
 
-# lets start out by defining some constants
-# Path to the server folder:
-spath="/dev/shm/minecraft_server"
-# Location of the help file:
-hfile="$spath/help"
-# Where to store the list of online players:
-olist="$spath/online_list"
-# Location of the message of the day:
-motd="$spath/motd"
-# Location to keep track of user information:
-udir="$spath/user_data"
-# Limits to number of times items can be /get'd:
-# netherrack:
-nrlimit=5
-# glowstone:
-sslimit=5
-# soulsand:
-gslimit=10
+source mcbot.properties
 
 touch "$olist"
 
@@ -206,7 +189,8 @@ main () {
     elif [[ "$*" = *"command: tp"* ]]; then
         tp "$4" "$8"
 
-    elif [[ "$*" = *"command: get"* ]]; then
+    elif [[ "$*" = *"command: get"* ]] && \
+         [[ "useget" = "true" ]]; then
         get "$4" "$8" "$9"
 
     elif [[ "$*" = *"command: weather"* ]]; then
@@ -215,7 +199,8 @@ main () {
     elif [[ "$*" = *"command: help"* ]]; then
         hlp "$4"
 
-    elif [[ "$4" = "CONSOLE:"  ]] && [[ "$*" = *"Stopping the server.."* ]]; then
+    elif [[ "$4" = "CONSOLE:"  ]] && \
+         [[ "$*" = *"Stopping the server.."* ]]; then
         die
 
     fi
