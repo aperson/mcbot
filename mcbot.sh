@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###################
 # mcbot.sh
-# version 0.4
+# version 0.5
 # Initially released on 05/01/11
 # Written by Zach McCullough
 # released under the GNU GPLv3
@@ -9,7 +9,27 @@
 # with the copy of this script
 ###################
 
-source mcbot.properties
+# Lets define some settings first:
+
+# Path to the server folder:
+spath="/dev/shm/minecraft_server"
+# Location of the help file:
+hfile="$spath/help"
+# Where to store the list of online players:
+olist="$spath/online_list"
+# Location of the message of the day:
+motd="$spath/motd"
+# Location to keep track of user information:
+udir="$spath/user_data"
+# Enable /get
+useget="false"
+# Limits to number of times items can be /get'd:
+# netherrack:
+nrlimit=5
+# glowstone:
+sslimit=5
+# soulsand:
+gslimit=10
 
 touch "$olist"
 
