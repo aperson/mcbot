@@ -148,9 +148,30 @@ main () {
     fi
     }
 
+    mail () {
+    # Simple mail system.
+        mail_count () {
+        # Takes a username as an argument and returns the number of unread
+        # and and total number of messages.
+        }
+        mail_read () {
+        # We still need to figure out how to store the mail for this to work.
+        # probably takes a user as an argument, the second argument will
+        # probably be some pointer to the desired message to read.
+        }
+        mail_delete () {
+        # Provision to delete a message.  As usuall, we'll take a user as the
+        # first argument, and then some reference to the message as the second.
+        }
+        mail_send () {
+        # Send's mail to user. Takes the from, to, and body of the message
+        # as the arguments.
+        }
+    }
+
     die () {
     # Breaks out of the loop and does a little housekeeping
-        rm -f "$olist"
+        rm -f "$online_list"
         break
     }
 
