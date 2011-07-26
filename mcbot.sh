@@ -106,7 +106,7 @@ main () {
         if [[ "$(count_users)" -eq 1 ]]; then
             tell "$1 You\047re the only one here, $1."
         else
-            local output="$(for i in $(cat $online_list); do echo -n "$i, ";done)"
+            local output="$(while read -r line; do echo -n "$i, ";done < $online_list)"
             tell "$1 Players online: $(count_users)"
             tell "$1" "${output%, }"
         fi
@@ -154,36 +154,60 @@ main () {
         break
     }
 
-    if [[ "$*" == *"logged in with entity"* ]]; then
+    if [[ "$6" == "command:" ]]; then
+        if [[ "$7" == "motd" ]]; then
+            tell_motd "$4"
+        elif [[ "$7" == "list" ]]; then
+            list_users "$4"
+        elif [[ "$7" == "seen" ]]; then
+            seen_user "$4" "$8"
+        elif [[ "$7" == "help" ]]; then
+            tell_help "$4"
+        elif [[ "$7" == "get" ]] && \
+             [[ "$use_get" == "true" ]]; then
+            get "$4" "$8" "$9"
+        fi
+    elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
-
-    elif [[ "$*" == *"lost connection: disconnect"* ]]; then
+    elif [[ "$5 $6 $7" == "lost connection: disconnect" ]]; then
         log_out "$4"
-
-    elif [[ "$*" == *"command: motd"* ]]; then
-        tell_motd "$4"
-
-    elif [[ "$*" == *"command: list"* ]]; then
-        list_users "$4"
-
-    elif [[ "$*" == *"command: tp"* ]]; then
-        tp "$4" "$8"
-
-    elif [[ "$*" == *"command: seen"* ]]; then
-        seen_user "$4" "$8"
-
-    elif [[ "$*" == *"command: get"* ]] && \
-         [[ "useget" = "true" ]]; then
-        get "$4" "$8" "$9"
-
-    elif [[ "$*" == *"command: help"* ]]; then
-        tell_help "$4"
-
-    elif [[ "$4" == "CONSOLE:"  ]] && \
-         [[ "$*" == *"Stopping the server.."* ]]; then
+    elif [[ "${line:27:30}" == "CONSOLE: Stopping the server.." ]]; then
         die
-
     fi
+
+
+
+
+#     if [[ "$*" == *"logged in with entity"* ]]; then
+#         log_in "$4"
+# 
+#     elif [[ "$*" == *"lost connection: disconnect"* ]]; then
+#         log_out "$4"
+# 
+#     elif [[ "$*" == *"command: motd"* ]]; then
+#         tell_motd "$4"
+# 
+#     elif [[ "$*" == *"command: list"* ]]; then
+#         list_users "$4"
+# 
+#     elif [[ "$*" == *"command: tp"* ]]; then
+#         tp "$4" "$8"
+# 
+#     elif [[ "$*" == *"command: seen"* ]]; then
+#         seen_user "$4" "$8"
+# 
+#     elif [[ "$*" == *"command: get"* ]] && \
+#          [[ "$useget" = "true" ]]; then
+#         get "$4" "$8" "$9"
+# 
+#     elif [[ "$*" == *"command: help"* ]]; then
+#         tell_help "$4"
+# 
+#     elif [[ "$4" == "CONSOLE:"  ]] && \
+#          [[ "$*" == *"Stopping the server.."* ]]; then
+#         die
+# 
+#     fi
 
 }
 
