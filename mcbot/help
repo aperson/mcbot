@@ -4,4 +4,3 @@ Commands available:
 /tp user        - teleports to user
 /get item [x]    - gives you item of x amount
 /motd            - shows the motd
-/weather zip   - gets the weather for zip

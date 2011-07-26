@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###################
 # mcbot.sh
-# version 0.5
+# version 0.6
 # Initially released on 05/01/11
 # Written by Zach McCullough
 # released under the GNU GPLv3
@@ -10,45 +10,43 @@
 ###################
 
 # Lets define some settings first:
-
+# GNU Screen name to expect the server to be in:
+screen_name="minecraft"
 # Path to the server folder:
-spath="/dev/shm/minecraft_server"
+server_path="/dev/shm/minecraft_server"
+# Path to the folder where mcbot stores things:
+mcbot="$server_path/mcbot"
 # Location of the help file:
-hfile="$spath/help"
+help_file="$mcbot/help"
 # Where to store the list of online players:
-olist="$spath/online_list"
+online_list="$mcbot/online_list"
 # Location of the message of the day:
-motd="$spath/motd"
-# Location to keep track of user information:
-udir="$spath/user_data"
-# Enable /get
-useget="false"
-# Limits to number of times items can be /get'd:
-# netherrack:
-nrlimit=5
-# glowstone:
-sslimit=5
-# soulsand:
-gslimit=10
+motd_file="$mcbot/motd"
+# Location to keep track of user information.
+# Every subfolder beyond this are usernames
+user_dir="$mcbot/user_data"
 
-touch "$olist"
+# Create online list:
+touch "$online_list"
 
 main () {
 # Script main function; takes a $line and decides what to do with it
 # $4 is usually the username; everything else depends on the context
 
-    scmd () {
-    # The base function for sending commands to the server
-    # anything passed to this function is sent to the server
-        bash -c "screen -p 0 -S minecraft -X eval 'stuff \"$*\"\015'"
+    send_cmd () {
+    # The base function for sending commands to the server.
+    # Anything passed to this function is sent to the server.
+    # We send a blank newline to clear anything that might be in the
+    # console already.  Thanks for the idea, Dagmar.
+        screen -p 0 -S minecraft -X eval "stuff \015\"$*\"\015"
     }
 
     tell () {
     # Whispers to the user; first argument should be the username
-        scmd "tell $*"
+        send_cmd "tell $*"
     }
 
-    rfile () {
+    tell_file () {
     # reads a file line by line and sends it to the user; takes a username and
     # what file to read as arguments
         while read -r line; do
@@ -56,49 +54,63 @@ main () {
         done < "$2"
     }
 
-    ucount () {
+    tell_help () {
+    # Tells user the help file.  Takes a user as an argument.
+        tell_file "$1" "$help_file"
+    }
+
+    count_users () {
     # Counts the online users; this takes no argument
-        wc -l $olist | cut -d" " -f1
+        local user_count="$(wc -l $online_list)"
+        echo "${user_count% *}"
     }
 
-    motd () {
+    tell_motd () {
     # Message of the day; takes a username as an argument
-        count="$(ucount)"
-        rfile "$1" "$motd"
+        local count="$(count_users)"
+        rfile "$1" "$motd_file"
         if [[ "$count" -eq 1 ]]; then
-            tell "$1 You\047re the only one here, $1"
+            tell "$1" "You\047re the only one here, $1."
         else
-            tell "$1 There are $(echo $(($count-1))) other users online."
+            tell "$1" "There are $(echo $(($count-1))) other users online."
         fi
     }
 
-    hlp () {
-    # Tells user the command help; takes a username as an argument
-        rfile "$1" "$hfile"
+    write_file () {
+    # Writes data to a file.  First argument should be the full path to the
+    # file; we will create the directory if it doesn't exist.  Second
+    # argument is what to write to the file. We always overwrite the
+    # WHOLE file.
+        local base_dir="${1%/*}"
+        if [[ ! -e "$base_dir" ]]; then
+            mkdir -p "$base_dir"
+        fi
+        echo -e "$2" > "$1"
     }
 
-    login () {
-    # records username to the online_list and sends the player the motd
-    # takes the username as an argument
-        echo "$1" >> "$olist"
-        motd "$1"
-    
+    log_in () {
+    # Records user to the online_list and records their login time for /seen
+    # We also send the motd.  Takes a username as an argument.
+        echo "$1" >> "$online_list"
+        write_file "$user_dir/$1/last_seen" "$(date "+%A, %B %d at %R")"
     }
 
-    logout () {
+    log_out () {
     # removes user from the online_list; takes a username as an argument
-        sed -i -e '/'"$1"'/d' "$olist"
+        sed -i -e '/'"$1"'/d' "$online_list"
     }
 
-    lusers () {
+    list_users () {
     # provides the list command; takes a username as an argument
-        if [[ "$(ucount)" -eq 1 ]]; then
-            tell "$1 You\047re the only one here, $1"
+        if [[ "$(count_users)" -eq 1 ]]; then
+            tell "$1 You\047re the only one here, $1."
         else
-            tell "$1 Players online: $(ucount)"
-            tell "$1 $(xargs -a $olist printf '%s, ' | sed '$s/..$//')"
+            local output="$(xargs -a $online_list printf '%s, ')"
+            tell "$1 Players online: $(count_users)"
+            tell "$1" "${output%, }"
         fi
     }
+
 
     tp () {
     # Teleports the first player to the second
@@ -110,123 +122,72 @@ main () {
     }
 
     get () {
-    # Gives user either netherrack or glowtone; takes username, item, [amount]
-        wfile () {
-        # writes data to file; accepts five mandatory arguments:
-        # file to write, date, nrused, gsused, and ssused
-            echo -e "udate=$2\nnrused=$3\ngsused=$4\nssused=$5" > "$1"
-        }
-        dimport () {
-        # Imports user data, creates file if it doesn't exist; takes username
-            udata="$udir/$1/used_items"
-            mydate="$(date +%Y%m%d)"
-
-            if [[ -e "$udata" ]]; then
-                source "$udata"
-                if [[ "$udate" != "$mydate" ]]; then
-                    wfile "$udata" "$mydate" 0 0 0
-                    source "$udata"
-                fi
-
-            else
-                mkdir -p "$udir/$1"
-                wfile "$udata" "$mydate" 0 0 0
-                source "$udata"
-            fi
-
-        }
-
-        amount="$3"
-
-        if [[ -z "$amount" ]];then
-            amount=1
+    # I don't use this on my server anymore, but if you want to enable /get,
+    # just have the mcbot_get.sh file in the $mcbot folder.  All its settings
+    # are in that file as well.  When I reimplement that, that is.
+        if [[ -e "$mcbot/mcbot_get.sh" ]]; then
+            source "$mcbot/mcbot_get.sh"
         fi
+    }
 
-        dimport "$1"
-        if [[ -z "$2" ]]; then
-            tell "$1 You must specify an item."
-            tell "$1 You have:"
-            tell "$1 $(($nrlimit - $nrused)) netherrack, $(($sslimit - $ssused)) soulsand, and $(($gslimit - $gsused)) glowstone"
-            tell "$1 left today."
-
-        elif [[ "$2" = "netherrack" ]] && \
-           [[ "$amount" -le "$nrlimit" ]] && \
-           [[ "$(($nrused + $amount))" -le "$nrlimit" ]]; then
-            scmd "give $1 87 $amount"
-            nrused="$(($nrused + $amount))"
-
-        elif [[ "$2" = "soulsand" ]] && \
-             [[ "$amount" -le "$sslimit" ]] && \
-             [[ "$(($ssused + $amount))" -le "$sslimit" ]]; then
-            scmd "give $1 88 $amount"
-            ssused="$(($ssused + $amount))"
-
-        elif [[ "$2" = "glowstone" ]] && \
-             [[ "$amount" -le "$gslimit" ]] && \
-             [[ "$(($gsused + $amount))" -le "$gslimit" ]]; then
-            scmd "give $1 89 $amount"
-            gsused="$(($gsused + $amount))"
-
-        else
-            tell "$1 Sorry, you can\047t have that\041"
-        fi
-
-        wfile "$udata" "$udate" "$nrused" "$gsused" "$ssused"
-
+    seen_user () {
+    # Gives the last logged in time of a user.  Takes the requesting user and
+    # the user in question as arguments.
+    if [[ -z "$2" ]]; then
+        tell "$1" "You must specify a user."
+    elif [[ "$1" == "$2" ]]; then
+        tell "$1" "That\047s you, silly!"
+    elif [[ "$(grep $2 $online_list)" ]]; then
+        tell "$1" "That user is online!"
+    elif [[ -e "$user_dir/$2/last_seen" ]]; then
+        tell "$1" "$2 was last logged in on:"
+        tell "$1" "$(cat $user_dir/$2/last_seen)"
+    else
+        tell "$1" "No information on that user available."
+    fi
     }
 
     die () {
     # Breaks out of the loop and does a little housekeeping
-        break
         rm -f "$olist"
+        break
+        exit 0
     }
 
-    weather() {
-    # Tells user the weather; takes a username and a zipcode as an argument.
-    # Credit goes to: http://www.commandlinefu.com/commands/view/3831/show-current-weather-for-any-us-city-or-zipcode
-    # This requires lynx to be installed
-        if [[ -n "$2" ]]; then
-            output="$(lynx -dump "http://mobile.weather.gov/port_zh.php?inputstring=$2" | \
-            sed 's/^ *//;/ror has occ/q;2h;/__/!{x;s/\n.*//;x;H;d};x;s/\n/ -- /;q';)"
-            tell "$1" "The weather outside is: $(echo ${output#*--})"
-        else
-            tell "$1" "You must specify a zipcode"
-        fi
-    }
+    if [[ "$*" == *"logged in with entity"* ]]; then
+        log_in "$4"
 
-    if [[ "$*" = *"logged in with entity"* ]]; then
-        login "$4"
+    elif [[ "$*" == *"lost connection: disconnect"* ]]; then
+        log_out "$4"
 
-    elif [[ "$*" = *"lost connection: disconnect"* ]]; then
-        logout "$4"
-
-    elif [[ "$*" = *"command: motd"* ]]; then
+    elif [[ "$*" == *"command: motd"* ]]; then
         motd "$4"
 
-    elif [[ "$*" = *"command: list"* ]]; then
-        lusers "$4"
+    elif [[ "$*" == *"command: list"* ]]; then
+        list_users "$4"
 
-    elif [[ "$*" = *"command: tp"* ]]; then
+    elif [[ "$*" == *"command: tp"* ]]; then
         tp "$4" "$8"
 
-    elif [[ "$*" = *"command: get"* ]] && \
+    elif [[ "$*" == *"command: seen"* ]]; then
+        seen_user "$4" "$8"
+
+    elif [[ "$*" == *"command: get"* ]] && \
          [[ "useget" = "true" ]]; then
         get "$4" "$8" "$9"
 
-    elif [[ "$*" = *"command: weather"* ]]; then
-        weather "$4" "$8"
+    elif [[ "$*" == *"command: help"* ]]; then
+        tell_help "$4"
 
-    elif [[ "$*" = *"command: help"* ]]; then
-        hlp "$4"
-
-    elif [[ "$4" = "CONSOLE:"  ]] && \
-         [[ "$*" = *"Stopping the server.."* ]]; then
+    elif [[ "$4" == "CONSOLE:"  ]] && \
+         [[ "$*" == *"Stopping the server.."* ]]; then
         die
 
     fi
+
 }
 
-tail -Fn0 "$spath/server.log" | \
+tail -Fn0 "$server_path/server.log" | \
 while read line; do
     main $line
 
