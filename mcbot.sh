@@ -27,7 +27,7 @@ motd_file="$mcbot/motd"
 user_dir="$mcbot/user_data"
 
 # Create online list:
-touch "$online_list"
+cat /dev/null > "$online_list"
 
 main () {
 # Script main function; takes a $line and decides what to do with it
@@ -68,7 +68,7 @@ main () {
     tell_motd () {
     # Message of the day; takes a username as an argument
         local count="$(count_users)"
-        rfile "$1" "$motd_file"
+        tell_file "$1" "$motd_file"
         if [[ "$count" -eq 1 ]]; then
             tell "$1" "You\047re the only one here, $1."
         else
@@ -93,6 +93,7 @@ main () {
     # We also send the motd.  Takes a username as an argument.
         echo "$1" >> "$online_list"
         write_file "$user_dir/$1/last_seen" "$(date "+%A, %B %d at %R")"
+        tell_motd "$1"
     }
 
     log_out () {
@@ -151,7 +152,6 @@ main () {
     # Breaks out of the loop and does a little housekeeping
         rm -f "$olist"
         break
-        exit 0
     }
 
     if [[ "$*" == *"logged in with entity"* ]]; then
@@ -161,7 +161,7 @@ main () {
         log_out "$4"
 
     elif [[ "$*" == *"command: motd"* ]]; then
-        motd "$4"
+        tell_motd "$4"
 
     elif [[ "$*" == *"command: list"* ]]; then
         list_users "$4"
