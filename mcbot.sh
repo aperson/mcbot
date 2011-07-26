@@ -106,7 +106,7 @@ main () {
         if [[ "$(count_users)" -eq 1 ]]; then
             tell "$1 You\047re the only one here, $1."
         else
-            local output="$(xargs -a $online_list printf '%s, ')"
+            local output="$(for i in $(cat $online_list); do echo -n "$i, ";done)"
             tell "$1 Players online: $(count_users)"
             tell "$1" "${output%, }"
         fi
