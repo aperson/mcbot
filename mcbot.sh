@@ -175,40 +175,6 @@ main () {
         die
     fi
 
-
-
-
-#     if [[ "$*" == *"logged in with entity"* ]]; then
-#         log_in "$4"
-# 
-#     elif [[ "$*" == *"lost connection: disconnect"* ]]; then
-#         log_out "$4"
-# 
-#     elif [[ "$*" == *"command: motd"* ]]; then
-#         tell_motd "$4"
-# 
-#     elif [[ "$*" == *"command: list"* ]]; then
-#         list_users "$4"
-# 
-#     elif [[ "$*" == *"command: tp"* ]]; then
-#         tp "$4" "$8"
-# 
-#     elif [[ "$*" == *"command: seen"* ]]; then
-#         seen_user "$4" "$8"
-# 
-#     elif [[ "$*" == *"command: get"* ]] && \
-#          [[ "$useget" = "true" ]]; then
-#         get "$4" "$8" "$9"
-# 
-#     elif [[ "$*" == *"command: help"* ]]; then
-#         tell_help "$4"
-# 
-#     elif [[ "$4" == "CONSOLE:"  ]] && \
-#          [[ "$*" == *"Stopping the server.."* ]]; then
-#         die
-# 
-#     fi
-
 }
 
 tail -Fn0 "$server_path/server.log" | \
