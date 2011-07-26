@@ -113,7 +113,7 @@ main () {
     }
 
 
-    tp () {
+    tp_user () {
     # Teleports the first player to the second
         if [[ -z "$2" ]]; then
             tell "$1 You must specify a user to teleport to."
@@ -163,6 +163,8 @@ main () {
             seen_user "$4" "$8"
         elif [[ "$7" == "help" ]]; then
             tell_help "$4"
+        elif [[ "$7" == "tp" ]]; then
+            tp_user "$4" "$8"
         elif [[ "$7" == "get" ]] && \
              [[ "$use_get" == "true" ]]; then
             get "$4" "$8" "$9"
