@@ -99,7 +99,7 @@ main () {
         local count="$(count_users)"
         tell_file "$1" "$motd_file"
         if [[ "$count" -eq 1 ]]; then
-            tell "$1" "You\047re the only one here, $1."
+            tell "$1" "You're the only one here, $1."
         else
             tell "$1" "There are $(echo $(($count-1))) other users online."
         fi
@@ -134,7 +134,7 @@ main () {
     list_users () {
     # provides the list command; takes a username as an argument
         if [[ "$(count_users)" -eq 1 ]]; then
-            tell "$1 You\047re the only one here, $1."
+            tell "$1 You're the only one here, $1."
         else
             local output="$(while read -r line; do echo -n "$line ";done < $online_list)"
             tell "$1 Players online: $(count_users)"
@@ -167,7 +167,7 @@ main () {
     if [[ -z "$2" ]]; then
         tell "$1" "You must specify a user."
     elif [[ "$1" == "$2" ]]; then
-        tell "$1" "That\047s you, silly!"
+        tell "$1" "That's you, silly!"
     elif [[ "$(grep -i $2 $online_list)" ]]; then
         tell "$1" "That user is online!"
     elif [[ -e "$user_dir/$(ls $user_dir/ | grep -i $2)/last_seen" ]]; then
