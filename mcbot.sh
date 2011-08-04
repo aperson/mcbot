@@ -10,8 +10,11 @@
 ###################
 
 # Lets define some settings first:
-# GNU Screen name to expect the server to be in:
-screen_name="minecraft"
+# GNU Screen/tmux session name to expect the server to be in:
+session_name="minecraft"
+# Uncomment one of the two, depending on if you're using screen or tmux
+#mux_cmd=screen
+#mux_cmd=tmux
 # Path to the server folder:
 server_path="/dev/shm/minecraft_server"
 # Path to the folder where mcbot stores things:
@@ -32,6 +35,11 @@ use_day="true"
 # Create online list:
 cat /dev/null > "$online_list"
 
+if [ "$mux_cmd." == "." ]; then
+    echo "You need to choose between screen and tmux"
+    exit 1
+fi
+
 main () {
 # Script main function; takes a $line and decides what to do with it
 # $4 is usually the username; everything else depends on the context
@@ -41,8 +49,18 @@ main () {
     # Anything passed to this function is sent to the server.
     # We send a blank newline to clear anything that might be in the
     # console already.  Thanks for the idea, Dagmar.
-        screen -p 0 -S minecraft -X eval "stuff \015\"$*\"\015"
         echo "sending \"$*\""
+        case $mux_cmd in
+            "tmux")
+                tmux send-keys -t $session_name:0 "$*" C-m
+                ;;
+            "screen")
+                screen -p 0 -S $session_name -X eval "stuff\015\"$*\"\015"
+                ;;
+            *)
+                echo "mux_cmd invalid"
+                exit 1
+        esac
     }
 
     tell () {
