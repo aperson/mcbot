@@ -118,7 +118,7 @@ main () {
         if [[ -z "$2" ]]; then
             tell "$1 You must specify a user to teleport to."
         else
-            scmd "tp $1 $2"
+            send_cmd "tp $1 $2"
         fi
     }
 
@@ -153,19 +153,23 @@ main () {
         mail_count () {
         # Takes a username as an argument and returns the number of unread
         # and and total number of messages.
+            sleep 0
         }
         mail_read () {
         # We still need to figure out how to store the mail for this to work.
         # probably takes a user as an argument, the second argument will
         # probably be some pointer to the desired message to read.
+            sleep 0
         }
         mail_delete () {
         # Provision to delete a message.  As usuall, we'll take a user as the
         # first argument, and then some reference to the message as the second.
+            sleep 0
         }
         mail_send () {
         # Send's mail to user. Takes the from, to, and body of the message
         # as the arguments.
+            sleep 0
         }
     }
 
@@ -192,16 +196,14 @@ main () {
         fi
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
-    elif [[ "$5 $6 $7" == "lost connection: disconnect" ]]; then
+    elif [[ "$5 $6" == "lost connection:" ]]; then
         log_out "$4"
     elif [[ "${line:27:30}" == "CONSOLE: Stopping the server.." ]]; then
         die
     fi
-
 }
 
 tail -Fn0 "$server_path/server.log" | \
 while read line; do
     main $line
-
 done
