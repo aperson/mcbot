@@ -42,6 +42,7 @@ main () {
     # We send a blank newline to clear anything that might be in the
     # console already.  Thanks for the idea, Dagmar.
         screen -p 0 -S minecraft -X eval "stuff \015\"$*\"\015"
+        echo "sending \"$*\""
     }
 
     tell () {
@@ -108,6 +109,7 @@ main () {
 
     log_out () {
     # removes user from the online_list; takes a username as an argument
+        echo "$1 logged out"
         sed -i -e '/'"$1"'/d' "$online_list"
     }
 
@@ -116,7 +118,7 @@ main () {
         if [[ "$(count_users)" -eq 1 ]]; then
             tell "$1 You\047re the only one here, $1."
         else
-            local output="$(while read -r line; do echo -n "$i, ";done < $online_list)"
+            local output="$(while read -r line; do echo -n "$line ";done < $online_list)"
             tell "$1 Players online: $(count_users)"
             tell "$1" "${output%, }"
         fi
