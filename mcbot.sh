@@ -59,6 +59,12 @@ main () {
         tell_file "$1" "$help_file"
     }
 
+    tell_op_help () {
+    # Appends OP help comments.  Takes a user as an argument.
+        tell "$1" "Additionally, you have /seen"
+        tell "$1" "and /tp user works"
+    }
+
     count_users () {
     # Counts the online users; this takes no argument
         local user_count="$(wc -l $online_list)"
@@ -179,21 +185,34 @@ main () {
         break
     }
 
+    # Parse log expecting non-op user
     if [[ "$6" == "command:" ]]; then
-        if [[ "$7" == "motd" ]]; then
-            tell_motd "$4"
-        elif [[ "$7" == "list" ]]; then
-            list_users "$4"
-        elif [[ "$7" == "seen" ]]; then
-            seen_user "$4" "$8"
-        elif [[ "$7" == "help" ]]; then
-            tell_help "$4"
-        elif [[ "$7" == "tp" ]]; then
-            tp_user "$4" "$8"
-        elif [[ "$7" == "get" ]] && \
-             [[ "$use_get" == "true" ]]; then
-            get "$4" "$8" "$9"
-        fi
+        case "$7" in
+            "motd")
+                tell_motd "$4" ;;
+            "list")
+                list_users "$4" ;;
+            "seen")
+                seen_user "$4" "$8" ;;
+            "help")
+                tell_help "$4" ;;
+            "tp")
+                tp_user "$4" "$8" ;;
+            "get")
+                 if [[ "$use_get" == "true" ]]; then
+                    get "$4" "$8" "$9"
+                fi;;
+        esac
+    # Parse log for op user
+    elif [[ "$5 $6 $7" == "issued server command:" ]]; then
+        case "$8" in
+            "help")
+                tell_op_help "$4" ;;
+            "seen")
+                seen_user "$4" "$9" ;;
+            "tp")
+                tp_user "$4" "$9" ;;
+        esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
     elif [[ "$5 $6" == "lost connection:" ]]; then
