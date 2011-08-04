@@ -150,13 +150,13 @@ main () {
         tell "$1" "You must specify a user."
     elif [[ "$1" == "$2" ]]; then
         tell "$1" "That\047s you, silly!"
-    elif [[ "$(grep $2 $online_list)" ]]; then
+    elif [[ "$(grep -i $2 $online_list)" ]]; then
         tell "$1" "That user is online!"
-    elif [[ -e "$user_dir/$2/last_seen" ]]; then
+    elif [[ -e "$user_dir/$(ls $user_dir/ | grep -i $2)/last_seen" ]]; then
         tell "$1" "$2 was last logged in on:"
-        tell "$1" "$(cat $user_dir/$2/last_seen)"
+        tell "$1" "$(cat $user_dir/$(ls $user_dir/ | grep -i $2)/last_seen)"
     else
-        tell "$1" "No information on that user available."
+        tell "$1" "No information on that user available. Try one of $(ls -x $user_dir)"
     fi
     }
 
