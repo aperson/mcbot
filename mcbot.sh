@@ -25,6 +25,9 @@ motd_file="$mcbot/motd"
 # Location to keep track of user information.
 # Every subfolder beyond this are usernames
 user_dir="$mcbot/user_data"
+# Let users start a new day
+## TODO: use a list of allowed users
+use_day="true"
 
 # Create online list:
 cat /dev/null > "$online_list"
@@ -63,6 +66,7 @@ main () {
     # Appends OP help comments.  Takes a user as an argument.
         tell "$1" "Additionally, you have /seen"
         tell "$1" "and /tp user works"
+        tell "$1" "and /day"
     }
 
     count_users () {
@@ -202,6 +206,11 @@ main () {
                  if [[ "$use_get" == "true" ]]; then
                     get "$4" "$8" "$9"
                 fi;;
+            "day")
+                #TODO: list of users instead
+                if [[ "$use_day." == "true." ]]; then
+                    send_cmd "time set 1"
+                fi;;
         esac
     # Parse log for op user
     elif [[ "$5 $6 $7" == "issued server command:" ]]; then
@@ -212,6 +221,8 @@ main () {
                 seen_user "$4" "$9" ;;
             "tp")
                 tp_user "$4" "$9" ;;
+            "day")
+                send_cmd "time set 1" ;;
         esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
