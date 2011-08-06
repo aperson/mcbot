@@ -164,18 +164,18 @@ main () {
     seen_user () {
     # Gives the last logged in time of a user.  Takes the requesting user and
     # the user in question as arguments.
-    if [[ -z "$2" ]]; then
-        tell "$1" "You must specify a user."
-    elif [[ "$1" == "$2" ]]; then
-        tell "$1" "That's you, silly!"
-    elif [[ "$(grep -i $2 $online_list)" ]]; then
-        tell "$1" "That user is online!"
-    elif [[ -e "$user_dir/$(ls $user_dir/ | grep -i $2)/last_seen" ]]; then
-        tell "$1" "$2 was last logged in on:"
-        tell "$1" "$(cat $user_dir/$(ls $user_dir/ | grep -i $2)/last_seen)"
-    else
-        tell "$1" "No information on that user available. Try one of $(ls -x $user_dir)"
-    fi
+        if [[ -z "$2" ]]; then
+            tell "$1" "You must specify a user."
+        elif [[ "$1" == "$2" ]]; then
+            tell "$1" "That's you, silly!"
+        elif [[ "$(grep -i $2 $online_list)" ]]; then
+            tell "$1" "That user is online!"
+        elif [[ -e "$user_dir/$(ls $user_dir/ | grep -i $2)/last_seen" ]]; then
+            tell "$1" "$2 was last logged in on:"
+            tell "$1" "$(cat $user_dir/$(ls $user_dir/ | grep -i $2)/last_seen)"
+        else
+            tell "$1" "No information on that user available. Try one of $(ls -x $user_dir)"
+        fi
     }
 
     mail () {
@@ -187,25 +187,26 @@ main () {
     # (read/send/unread), and anything after is treated as something to
     # be passed to the supporting function.
     local mail_dir="$user_dir/$1/mail"
-    local messages="$(find $mail_dir type -f)"
         mail_count () {
         # Takes a username as an argument and returns the number of unread
         # and and total number of messages.
-        if [[ ! -x "$mail_dir" ]]; then
-            tell "$1" "No mail."
-        else
-            if [[ "${#messages}" -eq 0 ]]; then
+            if [[ ! -x "$mail_dir" ]]; then
                 tell "$1" "No mail."
             else
-                local unread_count=0
-                for mail in "$messages"; do
-                    source "$mail_dir/$mail"
-                    if [[ "$unread" == "true" ]]; then
-                        (( ++unread_count ))
-                    fi
-                tell "$1" "You have $unread_count unread out of ${#messages} message(s)."
+                local messages="$(find $mail_dir type -f)"
+                if [[ "${#messages}" -eq 0 ]]; then
+                    tell "$1" "No mail."
+                else
+                    local unread_count=0
+                    for mail in "$messages"; do
+                        source "$mail_dir/$mail"
+                            if [[ "$unread" == "true" ]]; then
+                                (( ++unread_count ))
+                            fi
+                    done
+                    tell "$1" "You have $unread_count unread out of ${#messages} message(s)."
+                fi
             fi
-        fi
         }
 
         mail_read () {
