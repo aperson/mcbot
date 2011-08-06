@@ -1,6 +1,8 @@
 Commands available:
-/help            - shows this message
-/list              - shows online players
-/tp user        - teleports to user
-/seen user     - last login time of user
-/motd            - shows the motd
+/help        - shows this message
+/list         - shows online players
+/tp user    - teleports to user
+/seen user - last login time of user
+/motd        - shows the message of the day
+/day         - advance time to start of day
+/get       - cheat an item by item ID (see wiki). [Disabled]
