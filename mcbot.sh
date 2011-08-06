@@ -149,20 +149,46 @@ main () {
     }
 
     mail () {
-    # Simple mail system.
+    # Simple mail system.  Each user has nine mail slots.  We'll name the
+    # messages with their timestamp and store those in an array.  Each 'slot'
+    # will just reference that message's array index+1.  Message 1 is newest
+    # and 9 is oldest.  Each message will have three variables, sender, recipient,
+    # and the message body.  Takes a username, action to perform
+    # (read/send/unread), and anything after is treated as something to
+    # be passed to the supporting function.
+    local mail_dir="$user_dir/$1/mail"
+    local messages="$(find $mail_dir type -f)"
         mail_count () {
         # Takes a username as an argument and returns the number of unread
         # and and total number of messages.
+        if [[ ! -x "$mail_dir" ]]; then
+            tell "$1" "No mail."
+        else
+            if [[ "${#messages}" -eq 0 ]]; then
+                tell "$1" "No mail."
+            else
+                local unread_count=0
+                for mail in "$messages"; do
+                    source "$mail_dir/$mail"
+                    if [[ "$unread" == "true" ]]; then
+                        (( ++unread_count ))
+                    fi
+                tell "$1" "You have $unread_count unread out of ${#messages} message(s)."
+            fi
+        fi
         }
+
         mail_read () {
         # We still need to figure out how to store the mail for this to work.
         # probably takes a user as an argument, the second argument will
         # probably be some pointer to the desired message to read.
         }
+
         mail_delete () {
         # Provision to delete a message.  As usuall, we'll take a user as the
         # first argument, and then some reference to the message as the second.
         }
+
         mail_send () {
         # Send's mail to user. Takes the from, to, and body of the message
         # as the arguments.
