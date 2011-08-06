@@ -10,8 +10,11 @@
 ###################
 
 # Lets define some settings first:
-# GNU Screen name to expect the server to be in:
-screen_name="minecraft"
+# GNU Screen/tmux session name to expect the server to be in:
+session_name="minecraft"
+# Uncomment one of the two, depending on if you're using screen or tmux
+#mux_cmd=screen
+#mux_cmd=tmux
 # Path to the server folder:
 server_path="/dev/shm/minecraft_server"
 # Path to the folder where mcbot stores things:
@@ -25,9 +28,17 @@ motd_file="$mcbot/motd"
 # Location to keep track of user information.
 # Every subfolder beyond this are usernames
 user_dir="$mcbot/user_data"
+# Let users start a new day
+## TODO: use a list of allowed users
+use_day="true"
 
 # Create online list:
 cat /dev/null > "$online_list"
+
+if [ "$mux_cmd." == "." ]; then
+    echo "You need to choose between screen and tmux"
+    exit 1
+fi
 
 main () {
 # Script main function; takes a $line and decides what to do with it
@@ -38,7 +49,18 @@ main () {
     # Anything passed to this function is sent to the server.
     # We send a blank newline to clear anything that might be in the
     # console already.  Thanks for the idea, Dagmar.
-        screen -p 0 -S minecraft -X eval "stuff \015\"$*\"\015"
+        echo "sending \"$*\""
+        case $mux_cmd in
+            "tmux")
+                tmux send-keys -t $session_name:0 "$*" C-m
+                ;;
+            "screen")
+                screen -p 0 -S $session_name -X eval "stuff\015\"$*\"\015"
+                ;;
+            *)
+                echo "mux_cmd invalid"
+                exit 1
+        esac
     }
 
     tell () {
@@ -59,6 +81,13 @@ main () {
         tell_file "$1" "$help_file"
     }
 
+    tell_op_help () {
+    # Appends OP help comments.  Takes a user as an argument.
+        tell "$1" "Additionally, you have /seen"
+        tell "$1" "and /tp user works"
+        tell "$1" "and /day"
+    }
+
     count_users () {
     # Counts the online users; this takes no argument
         local user_count="$(wc -l $online_list)"
@@ -70,7 +99,7 @@ main () {
         local count="$(count_users)"
         tell_file "$1" "$motd_file"
         if [[ "$count" -eq 1 ]]; then
-            tell "$1" "You\047re the only one here, $1."
+            tell "$1" "You're the only one here, $1."
         else
             tell "$1" "There are $(echo $(($count-1))) other users online."
         fi
@@ -98,15 +127,16 @@ main () {
 
     log_out () {
     # removes user from the online_list; takes a username as an argument
+        echo "$1 logged out"
         sed -i -e '/'"$1"'/d' "$online_list"
     }
 
     list_users () {
     # provides the list command; takes a username as an argument
         if [[ "$(count_users)" -eq 1 ]]; then
-            tell "$1 You\047re the only one here, $1."
+            tell "$1 You're the only one here, $1."
         else
-            local output="$(while read -r line; do echo -n "$i, ";done < $online_list)"
+            local output="$(while read -r line; do echo -n "$line ";done < $online_list)"
             tell "$1 Players online: $(count_users)"
             tell "$1" "${output%, }"
         fi
@@ -118,7 +148,7 @@ main () {
         if [[ -z "$2" ]]; then
             tell "$1 You must specify a user to teleport to."
         else
-            scmd "tp $1 $2"
+            send_cmd "tp $1 $2"
         fi
     }
 
@@ -137,14 +167,14 @@ main () {
     if [[ -z "$2" ]]; then
         tell "$1" "You must specify a user."
     elif [[ "$1" == "$2" ]]; then
-        tell "$1" "That\047s you, silly!"
-    elif [[ "$(grep $2 $online_list)" ]]; then
+        tell "$1" "That's you, silly!"
+    elif [[ "$(grep -i $2 $online_list)" ]]; then
         tell "$1" "That user is online!"
-    elif [[ -e "$user_dir/$2/last_seen" ]]; then
+    elif [[ -e "$user_dir/$(ls $user_dir/ | grep -i $2)/last_seen" ]]; then
         tell "$1" "$2 was last logged in on:"
-        tell "$1" "$(cat $user_dir/$2/last_seen)"
+        tell "$1" "$(cat $user_dir/$(ls $user_dir/ | grep -i $2)/last_seen)"
     else
-        tell "$1" "No information on that user available."
+        tell "$1" "No information on that user available. Try one of $(ls -x $user_dir)"
     fi
     }
 
@@ -153,19 +183,23 @@ main () {
         mail_count () {
         # Takes a username as an argument and returns the number of unread
         # and and total number of messages.
+            sleep 0
         }
         mail_read () {
         # We still need to figure out how to store the mail for this to work.
         # probably takes a user as an argument, the second argument will
         # probably be some pointer to the desired message to read.
+            sleep 0
         }
         mail_delete () {
         # Provision to delete a message.  As usuall, we'll take a user as the
         # first argument, and then some reference to the message as the second.
+            sleep 0
         }
         mail_send () {
         # Send's mail to user. Takes the from, to, and body of the message
         # as the arguments.
+            sleep 0
         }
     }
 
@@ -175,33 +209,51 @@ main () {
         break
     }
 
+    # Parse log expecting non-op user
     if [[ "$6" == "command:" ]]; then
-        if [[ "$7" == "motd" ]]; then
-            tell_motd "$4"
-        elif [[ "$7" == "list" ]]; then
-            list_users "$4"
-        elif [[ "$7" == "seen" ]]; then
-            seen_user "$4" "$8"
-        elif [[ "$7" == "help" ]]; then
-            tell_help "$4"
-        elif [[ "$7" == "tp" ]]; then
-            tp_user "$4" "$8"
-        elif [[ "$7" == "get" ]] && \
-             [[ "$use_get" == "true" ]]; then
-            get "$4" "$8" "$9"
-        fi
+        case "$7" in
+            "motd")
+                tell_motd "$4" ;;
+            "list")
+                list_users "$4" ;;
+            "seen")
+                seen_user "$4" "$8" ;;
+            "help")
+                tell_help "$4" ;;
+            "tp")
+                tp_user "$4" "$8" ;;
+            "get")
+                 if [[ "$use_get" == "true" ]]; then
+                    get "$4" "$8" "$9"
+                fi;;
+            "day")
+                #TODO: list of users instead
+                if [[ "$use_day." == "true." ]]; then
+                    send_cmd "time set 1"
+                fi;;
+        esac
+    # Parse log for op user
+    elif [[ "$5 $6 $7" == "issued server command:" ]]; then
+        case "$8" in
+            "help")
+                tell_op_help "$4" ;;
+            "seen")
+                seen_user "$4" "$9" ;;
+            "tp")
+                tp_user "$4" "$9" ;;
+            "day")
+                send_cmd "time set 1" ;;
+        esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
-    elif [[ "$5 $6 $7" == "lost connection: disconnect" ]]; then
+    elif [[ "$5 $6" == "lost connection:" ]]; then
         log_out "$4"
     elif [[ "${line:27:30}" == "CONSOLE: Stopping the server.." ]]; then
         die
     fi
-
 }
 
 tail -Fn0 "$server_path/server.log" | \
 while read line; do
     main $line
-
 done
