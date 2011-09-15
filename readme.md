@@ -13,9 +13,11 @@ Currently, this bot provides the following commands/services:
 
 *  Provides /help to show available commands.
 
-*  Provieds /tp to allow player-to-player teleportation.
+*  Provieds /tp [user] to allow player-to-player teleportation.
 
-*  Provides /seen to query the last logged in time of a user.
+*  Provides /seen [user] to query the last logged in time of a user.
+
+*  Provides /creative [on|off|add|del|list] for managing and toggling creative mode access.
 
 Soon to be reimplemented features:
 
