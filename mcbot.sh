@@ -30,12 +30,12 @@ motd_file="$mcbot/motd"
 user_dir="$mcbot/user_data"
 # Let users start a new day
 ## TODO: use a list of allowed users
-use_day="true"
+use_day="false"
 
 # Create online list:
 cat /dev/null > "$online_list"
 
-if [ "$mux_cmd." == "." ]; then
+if [[ -z "$mux_cmd." ]]; then
     echo "You need to choose between screen and tmux"
     exit 1
 fi
@@ -55,7 +55,7 @@ main () {
                 tmux send-keys -t $session_name:0 "$*" C-m
                 ;;
             "screen")
-                screen -p 0 -S $session_name -X eval "stuff\015\"$*\"\015"
+                screen -p 0 -S $session_name -X eval "stuff \015\"$*\"\015"
                 ;;
             *)
                 echo "mux_cmd invalid"
@@ -65,14 +65,17 @@ main () {
 
     tell () {
     # Whispers to the user; first argument should be the username
-        send_cmd "tell $*"
+    # Note: we have 47 chars to work with per line before the server starts
+    # splitting the lines up.  We should do that ourselves eventually. We have
+    # 20 lines of scrollback as well.
+        send_cmd "tell" "$*"
     }
 
     tell_file () {
     # reads a file line by line and sends it to the user; takes a username and
     # what file to read as arguments
         while read -r line; do
-            tell "$1 $line"
+            tell "$1" "$line"
         done < "$2"
     }
 
@@ -121,7 +124,7 @@ main () {
     # Records user to the online_list and records their login time for /seen
     # We also send the motd.  Takes a username as an argument.
         echo "$1" >> "$online_list"
-        write_file "$user_dir/$1/last_seen" "$(date "+%A, %B %d at %R")"
+        write_file "$user_dir/$1/last_seen" "$(date '+%A, %B %d at %R')"
         tell_motd "$1"
     }
 
@@ -136,9 +139,9 @@ main () {
         if [[ "$(count_users)" -eq 1 ]]; then
             tell "$1 You're the only one here, $1."
         else
-            local output="$(while read -r line; do echo -n "$line ";done < $online_list)"
-            tell "$1 Players online: $(count_users)"
-            tell "$1" "${output%, }"
+            local output="$(while read -r line; do echo -n $line', ';done < $online_list)"
+            tell "$1" "Players online: $(count_users)"
+            tell "$1" "${output%', '}"
         fi
     }
 
@@ -186,7 +189,7 @@ main () {
     # and the message body.  Takes a username, action to perform
     # (read/send/unread), and anything after is treated as something to
     # be passed to the supporting function.
-    local mail_dir="$user_dir/$1/mail"
+        local mail_dir="$user_dir/$1/mail"
         mail_count () {
         # Takes a username as an argument and returns the number of unread
         # and and total number of messages.
