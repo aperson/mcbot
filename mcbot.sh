@@ -13,7 +13,7 @@
 # GNU Screen/tmux session name to expect the server to be in:
 session_name="minecraft"
 # Uncomment one of the two, depending on if you're using screen or tmux
-#mux_cmd=screen
+mux_cmd=screen
 #mux_cmd=tmux
 # Path to the server folder:
 server_path="/dev/shm/minecraft_server"
@@ -30,10 +30,22 @@ motd_file="$mcbot/motd"
 user_dir="$mcbot/user_data"
 # Let users start a new day
 ## TODO: use a list of allowed users
+### I added the base for doing that
 use_day="false"
+# Let users turn creative on/off
+use_creative="true"
+# The file to store allowed creative users
+creative_list="$mcbot/creative.txt"
 
 # Create online list:
 cat /dev/null > "$online_list"
+
+# Create the $creative_list if it doesn't exist
+# Please make sure the case of the usernames in this file match their users if editing
+# this file manually. Otherwise, just use the provided op command creative add
+if [[ ! -e "$creative_list" ]]; then
+    cat /dev/null > "$creative_list"
+fi
 
 if [[ -z "$mux_cmd." ]]; then
     echo "You need to choose between screen and tmux"
@@ -43,6 +55,39 @@ fi
 main () {
 # Script main function; takes a $line and decides what to do with it
 # $4 is usually the username; everything else depends on the context
+
+    auth_user () {
+    # Checks if user is in file. This is case sensitive. Don't be lazy.
+    # First argument is the file to auth against.  Second is the user.
+    # The optional third and fourth arguments are [add|del|list] and the issuer..
+    # If only two args are given, the only return value is true.
+    # If the third argurment is given and it is 'list' the first is considered the issuer
+        if [[ -z "$3" ]]; then
+            while read -r line; do
+                if [[ "$line" == "$2" ]]; then
+                    echo "true"
+                    break
+                fi
+            done < "$1"
+        else
+            case "$3" in
+                "add")
+                    if [[ "$(auth_user $1 $2)" != "true" ]]; then
+                        echo "$2" >> "$1"
+                    fi
+                    ;;
+                "del")
+                    if [[ "$(auth_user $1 $2)" == "true" ]]; then
+                        sed -i -e '/'"$2"'/d' "$1"
+                    fi
+                    ;;
+                "list")
+                    local output="$(while read -r line; do echo -n $line', ';done < $1)"
+                    tell "$2" "${output%', '}"
+                    ;;
+            esac
+        fi
+    }
 
     send_cmd () {
     # The base function for sending commands to the server.
@@ -181,6 +226,37 @@ main () {
         fi
     }
 
+    set_creative () {
+    # Allows player to turn creative mode on or off for themselves.
+    # For normal users, we accept the username and [on|off].
+    # If the second argument is [add|del|list],then the third argument is the target user and the
+    # the first is the issuer.
+        case "$2" in
+            "on")
+                if [[ "$(auth_user $creative_list $1)" == "true" || "$(auth_user $server_path/ops.txt $1)" == "true" ]]; then
+                    send_cmd "gamemode $1 1"
+                fi
+                ;;
+            "off")
+                send_cmd "gamemode $1 0"
+                ;;
+            "add")
+                echo $3
+                auth_user "$creative_list" "$3" "add"
+                ;;
+            "del")
+                auth_user "$creative_list" "$3" "del"
+                ;;
+            "list")
+                auth_user "$creative_list" "$1" "list" "$1"
+                ;;
+            *)
+                tell "$1" "Invalid option for creative command."
+                ;;
+        esac
+    }
+
+
     mail () {
     # Simple mail system.  Each user has nine mail slots.  We'll name the
     # messages with their timestamp and store those in an array.  Each 'slot'
@@ -257,8 +333,12 @@ main () {
                 fi;;
             "day")
                 #TODO: list of users instead
-                if [[ "$use_day." == "true." ]]; then
+                if [[ "$use_day" == "true" ]]; then
                     send_cmd "time set 1"
+                fi;;
+            "creative")
+                if [[ "$use_creative" == "true" && "$8" != "add" && "$8" != "del" && "$8" != "list" ]]; then
+                    set_creative "$4" "$8"
                 fi;;
         esac
     # Parse log for op user
@@ -272,6 +352,8 @@ main () {
                 tp_user "$4" "$9" ;;
             "day")
                 send_cmd "time set 1" ;;
+            "creative")
+                set_creative "$4" "$9" "${10}" ;;
         esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
