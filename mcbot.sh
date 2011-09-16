@@ -36,6 +36,10 @@ use_day="false"
 use_creative="true"
 # The file to store allowed creative users
 creative_list="$mcbot/creative.txt"
+# The time to wait before teleporting
+tp_wait="5"
+# The file to stor the last user who logged out
+last_user="$mcbot/last_user"
 
 # Create online list:
 cat /dev/null > "$online_list"
@@ -47,6 +51,10 @@ if [[ ! -e "$creative_list" ]]; then
     cat /dev/null > "$creative_list"
 fi
 
+if [[ ! -e "$last_user" ]]; then
+    echo -e "last=\"nobody\"\nlast_login=\"$(date '+%s')\"\n" > "$creative_list"
+fi
+
 if [[ -z "$mux_cmd." ]]; then
     echo "You need to choose between screen and tmux"
     exit 1
@@ -56,19 +64,48 @@ main () {
 # Script main function; takes a $line and decides what to do with it
 # $4 is usually the username; everything else depends on the context
 
+    compare_secs () {
+    # Subtracts the time in seconds of $2 from $1 and returns the hh:mm:ss
+        local difference="$(($1 - $2))"
+        local days="$((difference / 86400))"
+        local difference="$((difference % 86400))"
+        local hours="$((difference / 3600))"
+        local difference="$((difference % 3600))"
+        local minutes="$((difference / 60))"
+        local seconds="$((difference % 60))"
+        if [[ "$days" -eq 0 ]]; then
+            unset days
+            if [[ "$hours" -eq 0 ]]; then
+                unset hours
+                if [[ "$minutes" -eq 0 ]]; then
+                    unset minutes
+                fi
+            fi
+        fi
+        for i in "$days" "$hours" "$minutes" "$seconds"; do
+            if [[ -n "$i" ]]; then
+                if [[ "${#i}" -eq 1 ]]; then
+                    i="0$i"
+                fi
+                output="$output:$i"
+            fi
+        done
+        if [[ "${#output}" -eq 3 ]]; then
+            output="$output seconds"
+        fi
+        echo "${output#:}"
+    }
+
     auth_user () {
-    # Checks if user is in file. This is case sensitive. Don't be lazy.
+    # Checks if user is in file.
     # First argument is the file to auth against.  Second is the user.
     # The optional third and fourth arguments are [add|del|list] and the issuer..
     # If only two args are given, the only return value is true.
     # If the third argurment is given and it is 'list' the first is considered the issuer
         if [[ -z "$3" ]]; then
-            while read -r line; do
-                if [[ "$line" == "$2" ]]; then
-                    echo "true"
-                    break
-                fi
-            done < "$1"
+            if [[ "$(grep -i $2)" ]]; then
+                echo "true"
+            fi
         else
             case "$3" in
                 "add")
@@ -113,7 +150,19 @@ main () {
     # Note: we have 47 chars to work with per line before the server starts
     # splitting the lines up.  We should do that ourselves eventually. We have
     # 20 lines of scrollback as well.
-        send_cmd "tell" "$*"
+        if [[ "${#1} -gt 45" ]]; then
+            line="${*#$1}"
+            while true; do
+                send_cmd "tell" "$1 ${line:0:45}"
+                line="${line:45}"
+                if [[ "${#line}" -lt 45 ]]; then
+                    send_cmd "tell" "$1 $line"
+                    break
+                fi
+            done
+        else
+            send_cmd "tell" "$*"
+        fi
     }
 
     tell_file () {
@@ -147,9 +196,22 @@ main () {
         local count="$(count_users)"
         tell_file "$1" "$motd_file"
         if [[ "$count" -eq 1 ]]; then
+            source "$last_user"
+            local last_duration="$(compare_secs $(date '+%s') $last_logout)"
             tell "$1" "You're the only one here, $1."
+            if [[ ! -z "$last" ]]; then
+                if [[ "$1" == "$last" ]]; then
+                    tell "$1" "You last visited $last_duration ago."
+                else
+                    tell "$1" "$last was last here $last_duration ago."
+                fi
+            fi
         else
             tell "$1" "There are $(echo $(($count-1))) other users online."
+            source "$user_dir/$1"
+            if [[ -n "$last_logout" ]]; then
+                local last_duration="$(compare_secs $(date '+%s') $last_logout)"
+                tell "$1" "You last visited $last_duration ago."
         fi
     }
 
@@ -169,14 +231,19 @@ main () {
     # Records user to the online_list and records their login time for /seen
     # We also send the motd.  Takes a username as an argument.
         echo "$1" >> "$online_list"
-        write_file "$user_dir/$1/last_seen" "$(date '+%A, %B %d at %R')"
+        source "$last_user"
+        write_file "$user_dir/$1/login_data" "last_login_formatted=\"$(date '+%A, %B %d at %R')\"\nlast_login=\"$(date '+%s')\"\n"
         tell_motd "$1"
     }
 
     log_out () {
     # removes user from the online_list; takes a username as an argument
+        local logout_time="$(date '+%s')"
         echo "$1 logged out"
+        echo -e "last_logout=\"$logout_time\"" >> "$user_dir/$1/login_data"
+        write_file "$last_user" "last=\"$1\"\nlast_logout=\"$logout_time\"\n"
         sed -i -e '/'"$1"'/d' "$online_list"
+        
     }
 
     list_users () {
@@ -196,6 +263,9 @@ main () {
         if [[ -z "$2" ]]; then
             tell "$1 You must specify a user to teleport to."
         else
+            tell "$1" "You will be teleported to $2 in $tp_wait seconds."
+            tell "$2" "$1 will be teleporting to you in $tp_wait seconds."
+            sleep "$tp_wait"
             send_cmd "tp $1 $2"
         fi
     }
@@ -218,11 +288,14 @@ main () {
             tell "$1" "That's you, silly!"
         elif [[ "$(grep -i $2 $online_list)" ]]; then
             tell "$1" "That user is online!"
-        elif [[ -e "$user_dir/$(ls $user_dir/ | grep -i $2)/last_seen" ]]; then
+        elif [[ "$(echo $user_dir/*/login_data | grep -i $2)" ]]; then
+            source "$user_data/$(echo $user_dir/* | grep -io $2)/login_data"
             tell "$1" "$2 was last logged in on:"
-            tell "$1" "$(cat $user_dir/$(ls $user_dir/ | grep -i $2)/last_seen)"
+            tell "$1" "$last_login_formatted for $(compare_epochs $last_login $last_logout)."
         else
-            tell "$1" "No information on that user available. Try one of $(ls -x $user_dir)"
+            local users="$(for i in $user_dir/*;do echo -n ${i##*/}', '; done)"
+            tell "$1" "I don't know who that is. I only know:"
+            tell "$1" "${users%', '}"
         fi
     }
 
@@ -256,6 +329,12 @@ main () {
         esac
     }
 
+    played () {
+    # Tells the user how long they've been logged in for.  Expects a username.
+        source "$user_dir/$1/login_data"
+        local played_time="$(compare_secs $(date '+%s') $last_login)"
+        tell "$1" "You've been logged in for $played_time."
+    }
 
     mail () {
     # Simple mail system.  Each user has nine mail slots.  We'll name the
@@ -340,6 +419,8 @@ main () {
                 if [[ "$use_creative" == "true" && "$8" != "add" && "$8" != "del" && "$8" != "list" ]]; then
                     set_creative "$4" "$8"
                 fi;;
+            "played")
+                played "$4" ;;
         esac
     # Parse log for op user
     elif [[ "$5 $6 $7" == "issued server command:" ]]; then
@@ -354,6 +435,8 @@ main () {
                 send_cmd "time set 1" ;;
             "creative")
                 set_creative "$4" "$9" "${10}" ;;
+            "played")
+                played "$4" ;;
         esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
