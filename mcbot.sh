@@ -212,6 +212,7 @@ main () {
             if [[ -n "$last_logout" ]]; then
                 local last_duration="$(compare_secs $(date '+%s') $last_logout)"
                 tell "$1" "You last visited $last_duration ago."
+            fi
         fi
     }
 
