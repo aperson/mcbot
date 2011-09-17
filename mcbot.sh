@@ -17,6 +17,8 @@ mux_cmd=screen
 #mux_cmd=tmux
 # Path to the server folder:
 server_path="/dev/shm/minecraft_server"
+# World name/directory
+world_dir="$server_path/world"
 # Path to the folder where mcbot stores things:
 mcbot="$server_path/mcbot"
 # Location of the help file:
@@ -92,6 +94,12 @@ main () {
         done
         if [[ "${#output}" -eq 3 ]]; then
             output="$output seconds"
+        elif [[ "${#output}" -eq 6 ]]; then
+            output="$output minutes"
+        elif [[ "${#output}" -eq 9 ]]; then
+            output="$output hours"
+        elif [ "${#output}" -eq 12 ]]; then
+            output="$output days"
         fi
         echo "${output#:}"
     }
@@ -103,7 +111,7 @@ main () {
     # If only two args are given, the only return value is true.
     # If the third argurment is given and it is 'list' the first is considered the issuer
         if [[ -z "$3" ]]; then
-            if [[ "$(grep -i $2)" ]]; then
+            if [[ "$(grep -i $2 $1)" ]]; then
                 echo "true"
             fi
         else
@@ -150,19 +158,20 @@ main () {
     # Note: we have 47 chars to work with per line before the server starts
     # splitting the lines up.  We should do that ourselves eventually. We have
     # 20 lines of scrollback as well.
-        if [[ "${#1} -gt 45" ]]; then
-            line="${*#$1}"
-            while true; do
-                send_cmd "tell" "$1 ${line:0:45}"
-                line="${line:45}"
-                if [[ "${#line}" -lt 45 ]]; then
-                    send_cmd "tell" "$1 $line"
-                    break
-                fi
-            done
-        else
-            send_cmd "tell" "$*"
-        fi
+        #if [[ "${#1} -gt 45" ]]; then
+            #line="${*#$1}"
+            #while true; do
+                #send_cmd "tell" "$1 ${line:0:45}"
+                #line="${line:45}"
+                #if [[ "${#line}" -lt 45 ]]; then
+                    #send_cmd "tell" "$1 $line"
+                    #break
+                #fi
+            #done
+        #else
+            #send_cmd "tell" "$*"
+        #fi
+    send_cmd "tell" "$*"
     }
 
     tell_file () {
@@ -197,23 +206,25 @@ main () {
         tell_file "$1" "$motd_file"
         if [[ "$count" -eq 1 ]]; then
             source "$last_user"
+            login_data "read" "$last_username"
             local last_duration="$(compare_secs $(date '+%s') $last_logout)"
             tell "$1" "You're the only one here, $1."
-            if [[ ! -z "$last" ]]; then
-                if [[ "$1" == "$last" ]]; then
+            if [[ ! -z "$last_username" ]]; then
+                if [[ "$1" == "$last_username" ]]; then
                     tell "$1" "You last visited $last_duration ago."
                 else
-                    tell "$1" "$last was last here $last_duration ago."
+                    tell "$1" "$last_username was last here $last_duration ago."
                 fi
             fi
         else
             tell "$1" "There are $(echo $(($count-1))) other users online."
-            source "$user_dir/$1"
+            login_data "read" "$1"
             if [[ -n "$last_logout" ]]; then
                 local last_duration="$(compare_secs $(date '+%s') $last_logout)"
                 tell "$1" "You last visited $last_duration ago."
             fi
         fi
+        login_data "unset"
     }
 
     write_file () {
@@ -228,12 +239,30 @@ main () {
         echo -e "$2" > "$1"
     }
 
+    login_data () {
+# Writes/reads/unsets user's login data
+    # First argument action [read|write|unset].  Second arg is the username
+    # If the second arg is write, we expect the last_login_formatted, last_login, and
+    # last_logout values.
+        user_data="$user_dir/$2/login_data"
+        if [[ "$1" == "read" ]]; then
+            source "$user_data"
+        elif [[ "$1" == "write" ]]; then
+            write_file "$user_data" "last_login_formatted=\"$3\"\nlast_login=\"$4\"\nlast_logout=\"$5\"\n"
+        elif [[ "$1" == "unset" ]]; then
+            unset last_login_formatted
+            unset last_login
+            unset last_logout
+        fi
+    }
+
     log_in () {
     # Records user to the online_list and records their login time for /seen
     # We also send the motd.  Takes a username as an argument.
         echo "$1" >> "$online_list"
-        source "$last_user"
-        write_file "$user_dir/$1/login_data" "last_login_formatted=\"$(date '+%A, %B %d at %R')\"\nlast_login=\"$(date '+%s')\"\n"
+        login_data "read" "$1"
+        login_data "write" "$1" "$(date '+%A, %B %d at %R')" "$(date '+%s')" "$last_logout"
+        login_data "unset"
         tell_motd "$1"
     }
 
@@ -241,8 +270,10 @@ main () {
     # removes user from the online_list; takes a username as an argument
         local logout_time="$(date '+%s')"
         echo "$1 logged out"
-        echo -e "last_logout=\"$logout_time\"" >> "$user_dir/$1/login_data"
-        write_file "$last_user" "last=\"$1\"\nlast_logout=\"$logout_time\"\n"
+        login_data "read" "$1"
+        login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time"
+        login_data "unset"
+        write_file "$last_user" "last_username=\"$1\"\n"
         sed -i -e '/'"$1"'/d' "$online_list"
         
     }
@@ -305,36 +336,46 @@ main () {
     # For normal users, we accept the username and [on|off].
     # If the second argument is [add|del|list],then the third argument is the target user and the
     # the first is the issuer.
-        case "$2" in
-            "on")
-                if [[ "$(auth_user $creative_list $1)" == "true" || "$(auth_user $server_path/ops.txt $1)" == "true" ]]; then
+        if [[ "$(auth_user $creative_list $1)" == "true" || "$(auth_user $server_path/ops.txt $1)" == "true" ]]; then
+            case "$2" in
+                "on")
                     send_cmd "gamemode $1 1"
-                fi
-                ;;
-            "off")
-                send_cmd "gamemode $1 0"
-                ;;
-            "add")
-                echo $3
-                auth_user "$creative_list" "$3" "add"
-                ;;
-            "del")
-                auth_user "$creative_list" "$3" "del"
-                ;;
-            "list")
-                auth_user "$creative_list" "$1" "list" "$1"
-                ;;
-            *)
-                tell "$1" "Invalid option for creative command."
-                ;;
-        esac
+                    ;;
+                "off")
+                    send_cmd "gamemode $1 0"
+                    ;;
+                "add")
+                    echo $3
+                    auth_user "$creative_list" "$3" "add"
+                    ;;
+                "del")
+                    auth_user "$creative_list" "$3" "del"
+                    ;;
+                "list")
+                    auth_user "$creative_list" "$1" "list" "$1"
+                    ;;
+                *)
+                    tell "$1" "Invalid option for creative command."
+                    ;;
+            esac
+        else:
+            tell "$1" "You do not have access to that command."
+        fi
     }
 
     played () {
     # Tells the user how long they've been logged in for.  Expects a username.
-        source "$user_dir/$1/login_data"
+        login_data "read" "$1"
         local played_time="$(compare_secs $(date '+%s') $last_login)"
+        login_data "unset"
         tell "$1" "You've been logged in for $played_time."
+    }
+
+    world_size () {
+    # Tells the user the current world
+        local size="$(du -hs $world_dir)"
+        local available="$(free -m | awk '/buffers\/cache/{print $4}')M"
+        tell "$1" "The world is ${size%%$world_dir}/$available."
     }
 
     mail () {
@@ -417,11 +458,13 @@ main () {
                     send_cmd "time set 1"
                 fi;;
             "creative")
-                if [[ "$use_creative" == "true" && "$8" != "add" && "$8" != "del" && "$8" != "list" ]]; then
+                if [[ "$use_creative" == "true" && "$8" == "on" || "$8" == "off" ]]; then
                     set_creative "$4" "$8"
                 fi;;
             "played")
                 played "$4" ;;
+            "worldsize")
+                world_size "$4" ;;
         esac
     # Parse log for op user
     elif [[ "$5 $6 $7" == "issued server command:" ]]; then
@@ -438,6 +481,8 @@ main () {
                 set_creative "$4" "$9" "${10}" ;;
             "played")
                 played "$4" ;;
+            "worldsize")
+                world_size "$4" ;;
         esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
