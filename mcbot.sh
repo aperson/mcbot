@@ -295,8 +295,8 @@ main () {
         if [[ -z "$2" ]]; then
             tell "$1 You must specify a user to teleport to."
         else
-            tell "$1" "You will be teleported to $2 in $tp_wait seconds."
-            tell "$2" "$1 will be teleporting to you in $tp_wait seconds."
+            tell "$1" "Teleporting to $2 in $tp_wait seconds."
+            tell "$2" "$1 is teleporting to you in $tp_wait seconds."
             sleep "$tp_wait"
             send_cmd "tp $1 $2"
         fi
@@ -358,7 +358,7 @@ main () {
                     tell "$1" "Invalid option for creative command."
                     ;;
             esac
-        else:
+        else
             tell "$1" "You do not have access to that command."
         fi
     }
