@@ -66,15 +66,15 @@ main () {
 # Script main function; takes a $line and decides what to do with it
 # $4 is usually the username; everything else depends on the context
 
-    compare_secs () {
-    # Subtracts the time in seconds of $2 from $1 and returns the hh:mm:ss
-        local difference="$(($1 - $2))"
-        local days="$((difference / 86400))"
-        local difference="$((difference % 86400))"
-        local hours="$((difference / 3600))"
-        local difference="$((difference % 3600))"
-        local minutes="$((difference / 60))"
-        local seconds="$((difference % 60))"
+    format_secs () {
+    # Converts seconds into the hh:mm:ss
+        local time_secs="$1"
+        local days="$((time_secs / 86400))"
+        local time_secs="$((time_secs % 86400))"
+        local hours="$((time_secs / 3600))"
+        local time_secs="$((time_secs % 3600))"
+        local minutes="$((time_secs / 60))"
+        local seconds="$((time_secs % 60))"
         if [[ "$days" -eq 0 ]]; then
             unset days
             if [[ "$hours" -eq 0 ]]; then
@@ -207,7 +207,7 @@ main () {
         if [[ "$count" -eq 1 ]]; then
             source "$last_user"
             login_data "read" "$last_username"
-            local last_duration="$(compare_secs $(date '+%s') $last_logout)"
+            local last_duration="$(format_secs $(($(date '+%s') - $last_logout)))"
             tell "$1" "You're the only one here, $1."
             if [[ ! -z "$last_username" ]]; then
                 if [[ "$1" == "$last_username" ]]; then
@@ -220,7 +220,7 @@ main () {
             tell "$1" "There are $(echo $(($count-1))) other users online."
             login_data "read" "$1"
             if [[ -n "$last_logout" ]]; then
-                local last_duration="$(compare_secs $(date '+%s') $last_logout)"
+                local last_duration="$(format_secs $(($(date '+%s') - $last_logout)))"
                 tell "$1" "You last visited $last_duration ago."
             fi
         fi
@@ -242,19 +242,20 @@ main () {
     login_data () {
 # Writes/reads/unsets user's login data
     # First argument action [read|write|unset].  Second arg is the username
-    # If the second arg is write, we expect the last_login_formatted, last_login, and
-    # last_logout values.
-        user_data="$user_dir/$2/login_data"
+    # If the second arg is write, we expect the last_login_formatted, last_login,
+    # last_logout, and played_total values.
+        local user_data="$user_dir/$2/login_data"
         if [[ "$1" == "read" ]]; then
             if [[ -e "$user_data" ]]; then
                 source "$user_data"
             fi
         elif [[ "$1" == "write" ]]; then
-            write_file "$user_data" "last_login_formatted=\"$3\"\nlast_login=\"$4\"\nlast_logout=\"$5\"\n"
+            write_file "$user_data" "last_login_formatted=\"$3\"\nlast_login=\"$4\"\nlast_logout=\"$5\"\nplayed_total=\"$6\"\n"
         elif [[ "$1" == "unset" ]]; then
             unset last_login_formatted
             unset last_login
             unset last_logout
+            unset played_total
         fi
     }
 
@@ -263,7 +264,10 @@ main () {
     # We also send the motd.  Takes a username as an argument.
         echo "$1" >> "$online_list"
         login_data "read" "$1"
-        login_data "write" "$1" "$(date '+%A, %B %d at %R')" "$(date '+%s')" "$last_logout"
+        if [[ -z "$played_total" ]]; then
+            local played_total=0
+        fi
+        login_data "write" "$1" "$(date '+%A, %B %d at %R')" "$(date '+%s')" "$last_logout" "$played_total"
         login_data "unset"
         tell_motd "$1"
     }
@@ -273,7 +277,8 @@ main () {
         local logout_time="$(date '+%s')"
         echo "$1 logged out"
         login_data "read" "$1"
-        login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time"
+        local played_total="$(($played_total + $(($logout_time - $last_login))))"
+        login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time" "$played_total"
         login_data "unset"
         write_file "$last_user" "last_username=\"$1\"\n"
         sed -i -e '/'"$1"'/d' "$online_list"
@@ -308,7 +313,7 @@ main () {
                     tell "$1" "Use /list to see online players."
                 fi
             else
-                tell "$1" "You cannot teleport to yourself!"
+                tell "$1" "You cannot teleport to yourself."
             fi
         fi
     }
@@ -334,7 +339,7 @@ main () {
         elif [[ "$(echo $user_dir/*/login_data | grep -i $2)" ]]; then
             source "$user_data/$(echo $user_dir/* | grep -io $2)/login_data"
             tell "$1" "$2 was last logged in on:"
-            tell "$1" "$last_login_formatted for $(compare_secs $last_login $last_logout)."
+            tell "$1" "$last_login_formatted for $(format_secs $(($last_login - $last_logout)))."
         else
             local users="$(for i in $user_dir/*;do echo -n ${i##*/}', '; done)"
             tell "$1" "I don't know who that is. I only know:"
@@ -376,9 +381,10 @@ main () {
     played () {
     # Tells the user how long they've been logged in for.  Expects a username.
         login_data "read" "$1"
-        local played_time="$(compare_secs $(date '+%s') $last_login)"
+        local played_time="$(($(date '+%s') - $last_login))"
+        tell "$1" "You've been online for $(format_secs $played_time) and"
+        tell "$1" "have logged a total of $(format_secs $(($played_total + $played_time)))."
         login_data "unset"
-        tell "$1" "You've been logged in for $played_time."
     }
 
     world_size () {
