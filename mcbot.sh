@@ -107,7 +107,7 @@ main () {
     auth_user () {
     # Checks if user is in file.
     # First argument is the file to auth against.  Second is the user.
-    # The optional third and fourth arguments are [add|del|list] and the issuer..
+    # The optional third argument is [add|del|list]
     # If only two args are given, the only return value is true.
     # If the third argurment is given and it is 'list' the first is considered the issuer
         if [[ -z "$3" ]]; then
@@ -246,7 +246,9 @@ main () {
     # last_logout values.
         user_data="$user_dir/$2/login_data"
         if [[ "$1" == "read" ]]; then
-            source "$user_data"
+            if [[ -e "$user_data" ]]; then
+                source "$user_data"
+            fi
         elif [[ "$1" == "write" ]]; then
             write_file "$user_data" "last_login_formatted=\"$3\"\nlast_login=\"$4\"\nlast_logout=\"$5\"\n"
         elif [[ "$1" == "unset" ]]; then
@@ -295,10 +297,19 @@ main () {
         if [[ -z "$2" ]]; then
             tell "$1 You must specify a user to teleport to."
         else
-            tell "$1" "Teleporting to $2 in $tp_wait seconds."
-            tell "$2" "$1 is teleporting to you in $tp_wait seconds."
-            sleep "$tp_wait"
-            send_cmd "tp $1 $2"
+            if [[ "$1" != "$2" ]]; then
+                if [[ -n "$(auth_user $online_list $2)" ]]; then
+                    tell "$1" "Teleporting to $2 in $tp_wait seconds."
+                    tell "$2" "$1 will teleport to you in $tp_wait seconds."
+                    sleep "$tp_wait"
+                    send_cmd "tp $1 $2"
+                else
+                    tell "$1" "$2 is not online."
+                    tell "$1" "Use /list to see online players."
+                fi
+            else
+                tell "$1" "You cannot teleport to yourself!"
+            fi
         fi
     }
 
@@ -323,7 +334,7 @@ main () {
         elif [[ "$(echo $user_dir/*/login_data | grep -i $2)" ]]; then
             source "$user_data/$(echo $user_dir/* | grep -io $2)/login_data"
             tell "$1" "$2 was last logged in on:"
-            tell "$1" "$last_login_formatted for $(compare_epochs $last_login $last_logout)."
+            tell "$1" "$last_login_formatted for $(compare_secs $last_login $last_logout)."
         else
             local users="$(for i in $user_dir/*;do echo -n ${i##*/}', '; done)"
             tell "$1" "I don't know who that is. I only know:"
@@ -345,14 +356,13 @@ main () {
                     send_cmd "gamemode $1 0"
                     ;;
                 "add")
-                    echo $3
                     auth_user "$creative_list" "$3" "add"
                     ;;
                 "del")
                     auth_user "$creative_list" "$3" "del"
                     ;;
                 "list")
-                    auth_user "$creative_list" "$1" "list" "$1"
+                    auth_user "$creative_list" "$1" "list"
                     ;;
                 *)
                     tell "$1" "Invalid option for creative command."
@@ -459,7 +469,7 @@ main () {
                 fi;;
             "creative")
                 if [[ "$use_creative" == "true" && "$8" == "on" || "$8" == "off" ]]; then
-                    set_creative "$4" "$8"
+                    set_creative "$4" "$8" "$9"
                 fi;;
             "played")
                 played "$4" ;;
