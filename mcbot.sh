@@ -54,7 +54,7 @@ if [[ ! -e "$creative_list" ]]; then
 fi
 
 if [[ ! -e "$last_user" ]]; then
-    echo -e "last=\"nobody\"\nlast_login=\"$(date '+%s')\"\n" > "$creative_list"
+    echo -e "last_username=\"\"\n" > "$last_user"
 fi
 
 if [[ -z "$mux_cmd." ]]; then
@@ -207,14 +207,18 @@ main () {
         if [[ "$count" -eq 1 ]]; then
             source "$last_user"
             login_data "read" "$last_username"
-            local last_duration="$(format_secs $(($(date '+%s') - $last_logout)))"
-            tell "$1" "You're the only one here, $1."
-            if [[ ! -z "$last_username" ]]; then
-                if [[ "$1" == "$last_username" ]]; then
-                    tell "$1" "You last visited $last_duration ago."
-                else
-                    tell "$1" "$last_username was last here $last_duration ago."
+            if [[ -n "$last_username" ]]; then
+                local last_duration="$(format_secs $(($(date '+%s') - $last_logout)))"
+                tell "$1" "You're the only one here, $1."
+                if [[ ! -z "$last_username" ]]; then
+                    if [[ "$1" == "$last_username" ]]; then
+                        tell "$1" "You last visited $last_duration ago."
+                    else
+                        tell "$1" "$last_username was last here $last_duration ago."
+                    fi
                 fi
+            else
+                tell "$1" "You're the first person to ever visit!"
             fi
         else
             tell "$1" "There are $(echo $(($count-1))) other users online."
@@ -382,13 +386,15 @@ main () {
     # Tells the user how long they've been logged in for.  Expects a username.
         login_data "read" "$1"
         local played_time="$(($(date '+%s') - $last_login))"
+        local total_time="$(($played_total + $played_time))"
         tell "$1" "You've been online for $(format_secs $played_time) and"
-        tell "$1" "have logged a total of $(format_secs $(($played_total + $played_time)))."
+        tell "$1" "have logged a total of $(format_secs $total_time)."
         login_data "unset"
     }
 
     world_size () {
-    # Tells the user the current world
+    # Tells the user the current world. The available size is kinda specific to my server, as I
+    # run it in a ram disk. People are free, of course, to modify this to their needs.
         local size="$(du -hs $world_dir)"
         local available="$(free -m | awk '/buffers\/cache/{print $4}')M"
         tell "$1" "The world is ${size%%$world_dir}/$available."
