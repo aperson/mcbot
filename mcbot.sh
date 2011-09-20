@@ -98,7 +98,7 @@ main () {
             output="$output minutes"
         elif [[ "${#output}" -eq 9 ]]; then
             output="$output hours"
-        elif [ "${#output}" -eq 12 ]]; then
+        else 
             output="$output days"
         fi
         echo "${output#:}"
@@ -120,16 +120,16 @@ main () {
                     if [[ "$(auth_user $1 $2)" != "true" ]]; then
                         echo "$2" >> "$1"
                     fi
-                    ;;
+                ;;
                 "del")
                     if [[ "$(auth_user $1 $2)" == "true" ]]; then
                         sed -i -e '/'"$2"'/d' "$1"
                     fi
-                    ;;
+                ;;
                 "list")
                     local output="$(while read -r line; do echo -n $line', ';done < $1)"
                     tell "$2" "${output%', '}"
-                    ;;
+                ;;
             esac
         fi
     }
@@ -143,10 +143,10 @@ main () {
         case $mux_cmd in
             "tmux")
                 tmux send-keys -t $session_name:0 "$*" C-m
-                ;;
+            ;;
             "screen")
                 screen -p 0 -S $session_name -X eval "stuff \015\"$*\"\015"
-                ;;
+            ;;
             *)
                 echo "mux_cmd invalid"
                 exit 1
@@ -210,7 +210,7 @@ main () {
             if [[ -n "$last_username" ]]; then
                 local last_duration="$(format_secs $(($(date '+%s') - $last_logout)))"
                 tell "$1" "You're the only one here, $1."
-                if [[ ! -z "$last_username" ]]; then
+                if [[ -n "$last_username" ]]; then
                     if [[ "$1" == "$last_username" ]]; then
                         tell "$1" "You last visited $last_duration ago."
                     else
@@ -227,8 +227,8 @@ main () {
                 local last_duration="$(format_secs $(($(date '+%s') - $last_logout)))"
                 tell "$1" "You last visited $last_duration ago."
             fi
-        fi
         login_data "unset"
+        fi
     }
 
     write_file () {
@@ -254,7 +254,7 @@ main () {
                 source "$user_data"
             fi
         elif [[ "$1" == "write" ]]; then
-            write_file "$user_data" "last_login_formatted=\"$3\"\nlast_login=\"$4\"\nlast_logout=\"$5\"\nplayed_total=\"$6\"\n"
+            write_file "$user_data" "last_login_formatted=\"$3\"\nlast_login=\"$4\"\nlast_logout=\"$5\"\nplayed_total=\"$6\"\nstatus=\"$7\""
         elif [[ "$1" == "unset" ]]; then
             unset last_login_formatted
             unset last_login
@@ -269,11 +269,10 @@ main () {
         echo "$1" >> "$online_list"
         login_data "read" "$1"
         if [[ -z "$played_total" ]]; then
-            local played_total=0
+            played_total=0
         fi
-        login_data "write" "$1" "$(date '+%A, %B %d at %R')" "$(date '+%s')" "$last_logout" "$played_total"
+        login_data "write" "$1" "$(date '+%A, %B %d at %R')" "$(date '+%s')" "$last_logout" "$played_total" "online"
         login_data "unset"
-        tell_motd "$1"
     }
 
     log_out () {
@@ -282,7 +281,7 @@ main () {
         echo "$1 logged out"
         login_data "read" "$1"
         local played_total="$(($played_total + $(($logout_time - $last_login))))"
-        login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time" "$played_total"
+        login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time" "$played_total" "offline"
         login_data "unset"
         write_file "$last_user" "last_username=\"$1\"\n"
         sed -i -e '/'"$1"'/d' "$online_list"
@@ -360,22 +359,22 @@ main () {
             case "$2" in
                 "on")
                     send_cmd "gamemode $1 1"
-                    ;;
+                ;;
                 "off")
                     send_cmd "gamemode $1 0"
-                    ;;
+                ;;
                 "add")
                     auth_user "$creative_list" "$3" "add"
-                    ;;
+                ;;
                 "del")
                     auth_user "$creative_list" "$3" "del"
-                    ;;
+                ;;
                 "list")
                     auth_user "$creative_list" "$1" "list"
-                    ;;
+                ;;
                 *)
                     tell "$1" "Invalid option for creative command."
-                    ;;
+                ;;
             esac
         else
             tell "$1" "You do not have access to that command."
@@ -383,13 +382,39 @@ main () {
     }
 
     played () {
-    # Tells the user how long they've been logged in for.  Expects a username.
-        login_data "read" "$1"
-        local played_time="$(($(date '+%s') - $last_login))"
-        local total_time="$(($played_total + $played_time))"
-        tell "$1" "You've been online for $(format_secs $played_time) and"
-        tell "$1" "have logged a total of $(format_secs $total_time)."
-        login_data "unset"
+    # Can tell the user stats about play time.  Expects a username. An optional second argument is 
+    # 'all'.
+        user_played () {
+        # Tells the user how long they've been logged in for.  Expects a username.
+            login_data "read" "$1"
+            local played_time="$(($(date '+%s') - $last_login))"
+            local total_time="$(($played_total + $played_time))"
+            tell "$1" "You've been online for $(format_secs $played_time) and"
+            tell "$1" "have logged a total of $(format_secs $total_time)."
+            login_data "unset"
+        }
+        cumulative_played () {
+        # Tells the user the total time played by the entire server.  Expects a username.
+            local cumulative_time=0
+            for i in "$user_dir"/*; do
+                login_data "read" "${i##*/}"
+                if [[ "$status" == "online" ]]; then
+                    cumulative_time="$(($cumulative_time + $(($(date '+%s') - $last_login)) + $played_total))"
+                else
+                    cumulative_time="$(($cumulative_time + $played_total))"
+                fi
+                login_data "unset"
+            done
+            tell "$1" "There has been a grand total of :"
+            tell "$1" "$(format_secs $cumulative_time) played on this server."
+        }
+        if [[ -z "$2" ]]; then
+            user_played "$1"
+        elif [[ "$2" == "all" ]]; then
+            cumulative_played "$1"
+        else
+            tell "$1" "Invalid argument to the /played command."
+        fi
     }
 
     world_size () {
@@ -461,53 +486,71 @@ main () {
     if [[ "$6" == "command:" ]]; then
         case "$7" in
             "motd")
-                tell_motd "$4" ;;
+                tell_motd "$4"
+            ;;
             "list")
-                list_users "$4" ;;
+                list_users "$4"
+            ;;
             "seen")
-                seen_user "$4" "$8" ;;
+                seen_user "$4" "$8"
+            ;;
             "help")
-                tell_help "$4" ;;
+                tell_help "$4"
+            ;;
             "tp")
-                tp_user "$4" "$8" ;;
+                tp_user "$4" "$8"
+            ;;
             "get")
                  if [[ "$use_get" == "true" ]]; then
                     get "$4" "$8" "$9"
-                fi;;
+                fi
+            ;;
             "day")
                 #TODO: list of users instead
                 if [[ "$use_day" == "true" ]]; then
                     send_cmd "time set 1"
-                fi;;
+                fi
+            ;;
             "creative")
                 if [[ "$use_creative" == "true" && "$8" == "on" || "$8" == "off" ]]; then
                     set_creative "$4" "$8" "$9"
-                fi;;
+                fi
+            ;;
             "played")
-                played "$4" ;;
+                played "$4" "$8"
+            ;;
             "worldsize")
-                world_size "$4" ;;
+                world_size "$4"
+            ;;
         esac
     # Parse log for op user
     elif [[ "$5 $6 $7" == "issued server command:" ]]; then
         case "$8" in
             "help")
-                tell_op_help "$4" ;;
+                tell_op_help "$4"
+            ;;
             "seen")
-                seen_user "$4" "$9" ;;
+                seen_user "$4" "$9"
+            ;;
             "tp")
-                tp_user "$4" "$9" ;;
+                tp_user "$4" "$9"
+            ;;
             "day")
-                send_cmd "time set 1" ;;
+                send_cmd "time set 1"
+            ;;
             "creative")
-                set_creative "$4" "$9" "${10}" ;;
+                set_creative "$4" "$9" "${10}"
+            ;;
             "played")
-                played "$4" ;;
+                played "$4" "$9"
+            ;;
             "worldsize")
-                world_size "$4" ;;
+                world_size "$4"
+            ;;
         esac
     elif [[ "$6 $7 $8 $9 ${10}" == "logged in with entity id" ]]; then
         log_in "$4"
+        tell_motd "$4"
     elif [[ "$5 $6" == "lost connection:" ]]; then
         log_out "$4"
     elif [[ "${line:27:30}" == "CONSOLE: Stopping the server.." ]]; then
