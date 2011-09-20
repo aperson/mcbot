@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 ###################
 # mcbot.sh
-# version 0.6
+# version 0.7
 # Initially released on 05/01/11
 # Written by Zach McCullough
 # released under the GNU GPLv3
