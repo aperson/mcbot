@@ -93,15 +93,18 @@ main () {
             fi
         done
         if [[ "${#output}" -eq 3 ]]; then
-            output="$output seconds"
+            output="${output#:} seconds"
         elif [[ "${#output}" -eq 6 ]]; then
-            output="$output minutes"
+            output="${output#:} minutes"
         elif [[ "${#output}" -eq 9 ]]; then
-            output="$output hours"
-        else 
-            output="$output days"
+            output="${output#:} hours"
+        else
+            local output="${output#:}"
+            local output_days="${output%%:*}"
+            local output_hours="${output#*:}"
+            output="$output_days days $output_hours hours"
         fi
-        echo "${output#:}"
+        echo "$output"
     }
 
     auth_user () {
@@ -214,7 +217,8 @@ main () {
                     if [[ "$1" == "$last_username" ]]; then
                         tell "$1" "You last visited $last_duration ago."
                     else
-                        tell "$1" "$last_username was last here $last_duration ago."
+                        tell "$1" "$last_username was last here:"
+                        tell "$1" "$last_duration ago."
                     fi
                 fi
             else
@@ -405,8 +409,8 @@ main () {
                 fi
                 login_data "unset"
             done
-            tell "$1" "There has been a grand total of :"
-            tell "$1" "$(format_secs $cumulative_time) played on this server."
+            tell "$1" "The total time spent on this server:"
+            tell "$1" "$(format_secs $cumulative_time)"
         }
         if [[ -z "$2" ]]; then
             user_played "$1"
