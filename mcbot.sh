@@ -344,7 +344,7 @@ main () {
         elif [[ "$(grep -i $2 $online_list)" ]]; then
             tell "$1" "That user is online!"
         elif [[ "$(echo $user_dir/*/login_data | grep -i $2)" ]]; then
-            source "$user_data/$(echo $user_dir/* | grep -io $2)/login_data"
+            source "$user_dir/$(echo $user_dir/* | grep -io $2)/login_data"
             tell "$1" "$2 was last logged in on:"
             tell "$1" "$last_login_formatted for $(format_secs $(($last_login - $last_logout)))."
         else
