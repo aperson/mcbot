@@ -393,8 +393,9 @@ main () {
             login_data "read" "$1"
             local played_time="$(($(date '+%s') - $last_login))"
             local total_time="$(($played_total + $played_time))"
-            tell "$1" "You've been online for $(format_secs $played_time) and"
-            tell "$1" "have logged a total of $(format_secs $total_time)."
+            tell "$1" "You've been online for $(format_secs $played_time)."
+            tell "$1" "You have logged a total of:"
+            tell "$1" "$(format_secs $total_time)."
             login_data "unset"
         }
         cumulative_played () {
