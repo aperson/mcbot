@@ -496,6 +496,11 @@ main () {
 
     die () {
     # Breaks out of the loop and does a little housekeeping
+        for read -r line; do
+            if [[ "${#line}" -ne 0 ]]; then
+                log_out "$line"
+            fi
+        done < "$online_list"
         rm -f "$online_list"
         break
     }
