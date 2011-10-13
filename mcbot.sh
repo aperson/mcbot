@@ -42,9 +42,15 @@ creative_list="$mcbot/creative.txt"
 tp_wait="5"
 # The file to stor the last user who logged out
 last_user="$mcbot/last_user"
+# The file where the guest list is stored:
+guest_list="$mcbot/guest_list"
+# The timeout in seconds until we kick a guest after their inviter leaves:
+guest_kick_delay=30
 
 # Create online list:
 cat /dev/null > "$online_list"
+# lets keep an array too, so we don't have to read from disk so much.
+online_array=()
 
 # Create the $creative_list if it doesn't exist
 # Please make sure the case of the usernames in this file match their users if editing
@@ -107,6 +113,16 @@ main () {
         echo "$output"
     }
 
+    user_search () {
+    # This just replaces my use of grep -i. First arg is the file, second is the user.
+        while read -r line; do
+            if [[ "${1,,}" == "${line,,}" ]]; then
+                echo "true"
+                break
+            fi
+        done < "$2"
+    }
+
     auth_user () {
     # Checks if user is in file.
     # First argument is the file to auth against.  Second is the user.
@@ -114,7 +130,7 @@ main () {
     # If only two args are given, the only return value is true.
     # If the third argurment is given and it is 'list' the first is considered the issuer
         if [[ -z "$3" ]]; then
-            if [[ "$(grep -i $2 $1)" ]]; then
+            if [[ "$(user_search $2 $1)" == "true" ]]; then
                 echo "true"
             fi
         else
@@ -126,7 +142,9 @@ main () {
                 ;;
                 "del")
                     if [[ "$(auth_user $1 $2)" == "true" ]]; then
-                        sed -i -e '/'"$2"'/d' "$1"
+                        sed -i -e '/'"$2"'/I d' "$1"
+                    else
+                        tell "$2" "User not in list."
                     fi
                 ;;
                 "list")
@@ -161,20 +179,7 @@ main () {
     # Note: we have 47 chars to work with per line before the server starts
     # splitting the lines up.  We should do that ourselves eventually. We have
     # 20 lines of scrollback as well.
-        #if [[ "${#1} -gt 45" ]]; then
-            #line="${*#$1}"
-            #while true; do
-                #send_cmd "tell" "$1 ${line:0:45}"
-                #line="${line:45}"
-                #if [[ "${#line}" -lt 45 ]]; then
-                    #send_cmd "tell" "$1 $line"
-                    #break
-                #fi
-            #done
-        #else
-            #send_cmd "tell" "$*"
-        #fi
-    send_cmd "tell" "$*"
+        send_cmd "tell" "$*"
     }
 
     tell_file () {
@@ -268,8 +273,8 @@ main () {
     }
 
     log_in () {
-    # Records user to the online_list and records their login time for /seen
-    # We also send the motd.  Takes a username as an argument.
+    # Records user to the online_list and records their login time for 
+        online_array+=("$1")
         echo "$1" >> "$online_list"
         login_data "read" "$1"
         if [[ -z "$played_total" ]]; then
@@ -288,8 +293,7 @@ main () {
         login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time" "$played_total" "offline"
         login_data "unset"
         write_file "$last_user" "last_username=\"$1\"\n"
-        sed -i -e '/'"$1"'/d' "$online_list"
-        
+        auth_user "$online_list" "del" "$1"
     }
 
     list_users () {
@@ -313,8 +317,7 @@ main () {
                 if [[ -n "$(auth_user $online_list $2)" ]]; then
                     tell "$1" "Teleporting to $2 in $tp_wait seconds."
                     tell "$2" "$1 will teleport to you in $tp_wait seconds."
-                    sleep "$tp_wait"
-                    send_cmd "tp $1 $2"
+                    "$(sleep $tp_wait; send_cmd tp $1 $2)" &
                 else
                     tell "$1" "$2 is not online."
                     tell "$1" "Use /list to see online players."
@@ -341,12 +344,11 @@ main () {
             tell "$1" "You must specify a user."
         elif [[ "$1" == "$2" ]]; then
             tell "$1" "That's you, silly!"
-        elif [[ "$(grep -i $2 $online_list)" ]]; then
+        elif [[ "$(search_user $2 $online_list)" ]]; then
             tell "$1" "That user is online!"
-        elif [[ "$(echo $user_dir/*/login_data | grep -i $2)" ]]; then
-            source "$user_dir/$(echo $user_dir/* | grep -io $2)/login_data"
+        elif [[ "$(for i in $user_dir/*/login_data; do if [[ ${i,,} == ${2,,} ]]; then echo true; source $i; break; fi; done)" ]]; then
             tell "$1" "$2 was last logged in on:"
-            tell "$1" "$last_login_formatted for $(format_secs $(($last_login - $last_logout)))."
+            tell "$1" "$last_login_formatted for $(format_secs $(($last_logout - $last_login)))."
         else
             local users="$(for i in $user_dir/*;do echo -n ${i##*/}', '; done)"
             tell "$1" "I don't know who that is. I only know:"
@@ -418,7 +420,7 @@ main () {
         elif [[ "$2" == "all" ]]; then
             cumulative_played "$1"
         else
-            tell "$1" "Invalid argument to the /played command."
+            tell "$1" "Invalid argument for the /played command."
         fi
     }
 
@@ -428,6 +430,12 @@ main () {
         local size="$(du -hs $world_dir)"
         local available="$(free -m | awk '/buffers\/cache/{print $4}')M"
         tell "$1" "The world is ${size%%$world_dir}/$available."
+    }
+
+    guest_pass () {
+    # Allows a user through the whitelist temporarily. As long as the invitee is on, the invited
+    # is allowed on.  Invites will be logged to a file and no user data will be stored.
+    # First argument is the issuer, second is the command [add|del|list], and the third is the invited.
     }
 
     mail () {
