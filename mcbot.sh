@@ -171,6 +171,7 @@ main () {
             *)
                 echo "mux_cmd invalid"
                 exit 1
+            ;;
         esac
     }
 
@@ -257,7 +258,7 @@ main () {
     # First argument action [read|write|unset].  Second arg is the username
     # If the second arg is write, we expect the last_login_formatted, last_login,
     # last_logout, and played_total values.
-        local user_data="$user_dir/$2/login_data"
+        local user_data="$user_dir/${2,,}/login_data"
         if [[ "$1" == "read" ]]; then
             if [[ -e "$user_data" ]]; then
                 source "$user_data"
@@ -346,9 +347,12 @@ main () {
             tell "$1" "That's you, silly!"
         elif [[ "$(search_user $2 $online_list)" ]]; then
             tell "$1" "That user is online!"
-        elif [[ "$(for i in $user_dir/*/login_data; do if [[ ${i,,} == ${2,,} ]]; then echo true; source $i; break; fi; done)" ]]; then
+        elif [[ "$(for i in $user_dir/*/login_data; do if [[ ${i,,} == */${2,,}/login_data ]]; then echo true; break; fi; done)" ]]; then
+            login_data "read" "$2"
             tell "$1" "$2 was last logged in on:"
-            tell "$1" "$last_login_formatted for $(format_secs $(($last_logout - $last_login)))."
+            tell "$1" "$last_login_formatted for:"
+            tell "$1" "$(format_secs $(($last_logout - $last_login)))."
+            login_data "unset"
         else
             local users="$(for i in $user_dir/*;do echo -n ${i##*/}', '; done)"
             tell "$1" "I don't know who that is. I only know:"
@@ -436,6 +440,7 @@ main () {
     # Allows a user through the whitelist temporarily. As long as the invitee is on, the invited
     # is allowed on.  Invites will be logged to a file and no user data will be stored.
     # First argument is the issuer, second is the command [add|del|list], and the third is the invited.
+        sleep 0
     }
 
     mail () {
