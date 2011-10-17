@@ -294,7 +294,7 @@ main () {
         login_data "write" "$1" "$last_login_formatted" "$last_login" "$logout_time" "$played_total" "offline"
         login_data "unset"
         write_file "$last_user" "last_username=\"$1\"\n"
-        auth_user "$online_list" "del" "$1"
+        auth_user "$online_list" "$1" "del"
     }
 
     list_users () {
